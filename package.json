@@ -1,10 +1,10 @@
 {
-  "name": "All-API-Node",
+  "name": "all-api-node",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "The API for almost everything from Freetime Maker.",
+  "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "./index.ts"
   },
   "private": true
 }
