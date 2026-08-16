@@ -2,9 +2,9 @@
   "name": "all-api-node",
   "version": "1.0.0",
   "description": "The API for almost everything from Freetime Maker.",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
-    "start": "./index.ts"
+    "start": "node index.js"
   },
   "private": true
 }
