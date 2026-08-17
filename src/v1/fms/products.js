@@ -9,7 +9,7 @@ let products = [
         currency: 'USD',
         stock: 10000000,
         category: 'Mobile Background',
-        imageUrl: "./images/first_background.png",
+        imageUrl: "https://freetimemaker.github.io/Freetime-Maker-Shop/images/fb.png",
         createdAt: new Date().toISOString()
     }
 ];
