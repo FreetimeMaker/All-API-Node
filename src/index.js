@@ -15,7 +15,7 @@ app.get('/', (req, res) => {
         <!DOCTYPE html>
         <html lang="de">
         <head>
-            <title>All API Root</title>
+            <title>All API v1.0.0</title>
         </head>
         <body>
             <pre>${JSON.stringify({

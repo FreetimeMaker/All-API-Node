@@ -24,15 +24,27 @@ router.get('/health', async (req, res) => {
 
 // Root of v1
 router.get('/', (req, res) => {
-    res.json({
-        message: 'Welcome to the All API!',
-        version: '1.0.0',
-        endpoints: {
-            'cross endpoints': {
-                health: '/api/v1/health',
+    res.status(200).send(`
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <title>All API v1.0.0</title>
+        </head>
+        <body>
+            <pre>${JSON.stringify({
+        message: 'Welcome to the All API v1!',
+        api: {
+            version: '1.0.0',
+            'v1 endpoints': {
+                'cross endpoints': {
+                    health: '/api/v1/health',
+                },
             }
         }
-    });
+    }, null, 2)}</pre>
+        </body>
+        </html>
+    `);
 });
 
 // V1 routes (ohne /api/v1 prefix!)
