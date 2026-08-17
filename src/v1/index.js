@@ -1,38 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
+const health = require('health');
+const products = require('./fms/products');
+const {app} = require("../index");
 
-// Health Check (ohne /api/v1 prefix!)
-router.get('/health', async (req, res) => {
-    const result = {
-        status: 'ok',
-        service: 'All API',
-        timestamp: new Date().toISOString(),
-        checks: {}
-    };
+app('/health', health);
+app('/fms/products', products)
 
-    try {
-        await axios.head('https://api.oxapay.com/v1/common/monitor');
-        result.checks.oxapay = 'reachable';
-    } catch (err) {
-        result.checks.oxapay = `error: ${err.message}`;
-        result.status = 'degraded';
-    }
-
-    res.status(result.status === 'ok' ? 200 : 503).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>All API v1.0.0 Health Check - ${result.status}</title>
-        </head>
-        <body>
-            <pre>${JSON.stringify(result, null, 2)}</pre>
-        </body>
-        </html>
-    `);
-});
-
-// Root of v1
 router.get('/', (req, res) => {
     res.status(200).send(`
         <!DOCTYPE html>
@@ -49,6 +23,9 @@ router.get('/', (req, res) => {
                 'cross endpoints': {
                     health: '/api/v1/health',
                 },
+                'Freetime Maker Shop endpoints': {
+                    products: '/api/v1/fms/products',
+                }
             }
         }
     }, null, 2)}</pre>
@@ -56,7 +33,5 @@ router.get('/', (req, res) => {
         </html>
     `);
 });
-
-// V1 routes (ohne /api/v1 prefix!)
 
 module.exports = router;
