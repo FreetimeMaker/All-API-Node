@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const health = require('./health');
 const products = require('./fms/products');
-const {app} = require("../index");
 
-app('/health', health);
-app('/fms/products', products)
+router.use('/health', health);
+router.use('/fms/products', products);
 
 router.get('/', (req, res) => {
     res.status(200).send(`
