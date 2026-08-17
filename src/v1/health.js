@@ -1,5 +1,5 @@
-import axios from "axios";
-import router from "./index";
+const axios = require('axios');
+const router = require('express').Router();
 
 router.get('/health', async (req, res) => {
     const result = {

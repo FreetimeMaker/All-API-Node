@@ -1,4 +1,4 @@
-const router = require('../index');
+const router = require('express').Router();
 
 let products = [
     {
