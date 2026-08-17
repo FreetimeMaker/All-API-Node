@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const health = require('health');
+const health = require('./health');
 const products = require('./fms/products');
 const {app} = require("../index");
 
