@@ -3,24 +3,13 @@ const router = require('express').Router();
 let products = [
     {
         id: 1,
-        name: 'T-Shirt Basic',
-        description: 'Baumwoll-T-Shirt, verschiedene Farben',
-        price: 19.99,
-        currency: 'EUR',
-        stock: 42,
-        category: 'Kleidung',
-        imageUrl: null,
-        createdAt: new Date().toISOString()
-    },
-    {
-        id: 2,
-        name: 'Kaffeetasse',
-        description: 'Keramiktasse 300ml',
-        price: 9.5,
-        currency: 'EUR',
-        stock: 100,
-        category: 'Haushalt',
-        imageUrl: null,
+        name: 'First Background',
+        description: 'This is my First Background I made',
+        price: 1,
+        currency: 'USD',
+        stock: 10000000,
+        category: 'Mobile Background',
+        imageUrl: "/images/first_background.png",
         createdAt: new Date().toISOString()
     }
 ];
@@ -96,7 +85,7 @@ router.get('/', (req, res) => {
         });
     }
 
-    renderHtml(res, 200, `All API - Products (${result.length})`, {
+    renderHtml(res, 200, `All API v1.0.0 - Freetime Maker Shop - Products (${result.length})`, {
         count: result.length,
         products: result
     });
@@ -107,7 +96,7 @@ router.get('/:id', (req, res) => {
     const product = products.find(p => p.id === id);
 
     if (!product) {
-        return renderHtml(res, 404, 'All API - Product not found', { error: 'Product not found' });
+        return renderHtml(res, 404, 'All API v1.0.0 - Freetime Maker Shop - Product not found', { error: 'Product not found' });
     }
 
     renderHtml(res, 200, `All API - ${product.name}`, product);
