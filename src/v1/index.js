@@ -19,7 +19,17 @@ router.get('/health', async (req, res) => {
         result.status = 'degraded';
     }
 
-    res.status(result.status === 'ok' ? 200 : 503).json(result);
+    res.status(result.status === 'ok' ? 200 : 503).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>All API v1.0.0 Health Check - ${result.status}</title>
+        </head>
+        <body>
+            <pre>${JSON.stringify(result, null, 2)}</pre>
+        </body>
+        </html>
+    `);
 });
 
 // Root of v1
