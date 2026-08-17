@@ -1,7 +1,7 @@
 const axios = require('axios');
 const router = require('express').Router();
 
-router.get('/health', async (req, res) => {
+router.get('/', async (req, res) => {
     const result = {
         status: 'ok',
         service: 'All API',
@@ -21,7 +21,7 @@ router.get('/health', async (req, res) => {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>All API v1.0.0 Health Check - ${result.status}</title>
+            <title>All API v1.0.0 - Health Check - ${result.status}</title>
         </head>
         <body>
             <pre>${JSON.stringify(result, null, 2)}</pre>

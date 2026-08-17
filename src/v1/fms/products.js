@@ -51,6 +51,20 @@ function validateProduct(body, { partial = false } = {}) {
     return errors;
 }
 
+function renderHtml(res, statusCode, title, data) {
+    res.status(statusCode).send(`
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <title>All API v1.0.0 - Freetime Maker Shop Products</title>
+        </head>
+        <body>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+        </body>
+        </html>
+    `);
+}
+
 router.get('/', (req, res) => {
     let result = [...products];
     const { category, minPrice, maxPrice, sort, order = 'asc', search } = req.query;
@@ -82,7 +96,7 @@ router.get('/', (req, res) => {
         });
     }
 
-    res.status(200).json({
+    renderHtml(res, 200, `All API - Products (${result.length})`, {
         count: result.length,
         products: result
     });
@@ -93,10 +107,10 @@ router.get('/:id', (req, res) => {
     const product = products.find(p => p.id === id);
 
     if (!product) {
-        return res.status(404).json({ error: 'Product not found' });
+        return renderHtml(res, 404, 'All API - Product not found', { error: 'Product not found' });
     }
 
-    res.status(200).json(product);
+    renderHtml(res, 200, `All API - ${product.name}`, product);
 });
 
 router.post('/', (req, res) => {
