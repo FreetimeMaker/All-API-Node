@@ -71,7 +71,7 @@ router.get('/', (req, res) => {
         });
     }
 
-    renderHtml(res, 200, `All API - Products (${result.length})`, {
+    res.status(200).json({
         count: result.length,
         products: result
     });
@@ -82,10 +82,10 @@ router.get('/:id', (req, res) => {
     const product = products.find(p => p.id === id);
 
     if (!product) {
-        return renderHtml(res, 404, 'All API - Product not found', { error: 'Product not found' });
+        return res.status(404).json({ error: 'Product not found' });
     }
 
-    renderHtml(res, 200, `All API - ${product.name}`, product);
+    res.status(200).json(product);
 });
 
 router.post('/', (req, res) => {
