@@ -9,7 +9,7 @@ let products = [
         currency: 'USD',
         stock: 10000000,
         category: 'Mobile Background',
-        imageUrl: "https://freetimemaker.github.io/Freetime-Maker-Shop/images/fb.png",
+        imageUrl: null,
         createdAt: new Date().toISOString()
     }
 ];
@@ -38,20 +38,6 @@ function validateProduct(body, { partial = false } = {}) {
     }
 
     return errors;
-}
-
-function renderHtml(res, statusCode, title, data) {
-    res.status(statusCode).send(`
-        <!DOCTYPE html>
-        <html lang="de">
-        <head>
-            <title>All API v1.0.0 - Freetime Maker Shop Products</title>
-        </head>
-        <body>
-            <pre>${JSON.stringify(data, null, 2)}</pre>
-        </body>
-        </html>
-    `);
 }
 
 router.get('/', (req, res) => {
@@ -85,7 +71,7 @@ router.get('/', (req, res) => {
         });
     }
 
-    renderHtml(res, 200, `All API v1.0.0 - Freetime Maker Shop - Products (${result.length})`, {
+    renderHtml(res, 200, `All API - Products (${result.length})`, {
         count: result.length,
         products: result
     });
@@ -96,7 +82,7 @@ router.get('/:id', (req, res) => {
     const product = products.find(p => p.id === id);
 
     if (!product) {
-        return renderHtml(res, 404, 'All API v1.0.0 - Freetime Maker Shop - Product not found', { error: 'Product not found' });
+        return renderHtml(res, 404, 'All API - Product not found', { error: 'Product not found' });
     }
 
     renderHtml(res, 200, `All API - ${product.name}`, product);

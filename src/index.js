@@ -9,14 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.status(200).send(`
-        <!DOCTYPE html>
-        <html lang="de">
-        <head>
-            <title>All API v1.0.0</title>
-        </head>
-        <body>
-            <pre>${JSON.stringify({
+    res.json({
         message: 'Welcome to the All API!',
         api: {
             version: '1.0.0',
@@ -29,10 +22,7 @@ app.get('/', (req, res) => {
                 }
             }
         }
-    }, null, 2)}</pre>
-        </body>
-        </html>
-    `);
+    });
 });
 
 app.use('/api/v1', require('./v1'));

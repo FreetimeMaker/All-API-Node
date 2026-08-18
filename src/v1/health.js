@@ -1,7 +1,7 @@
 const axios = require('axios');
 const router = require('express').Router();
 
-router.get('/', async (req, res) => {
+router.get('/health', async (req, res) => {
     const result = {
         status: 'ok',
         service: 'All API',
@@ -17,17 +17,8 @@ router.get('/', async (req, res) => {
         result.status = 'degraded';
     }
 
-    res.status(result.status === 'ok' ? 200 : 503).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>All API v1.0.0 - Health Check - ${result.status}</title>
-        </head>
-        <body>
-            <pre>${JSON.stringify(result, null, 2)}</pre>
-        </body>
-        </html>
-    `);
+    res.status(result.status === 'ok' ? 200 : 503).json(result);
 });
+
 
 module.exports = router;
