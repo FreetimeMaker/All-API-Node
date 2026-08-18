@@ -1,7 +1,7 @@
 const axios = require('axios');
 const router = require('express').Router();
 
-router.get('/health', async (req, res) => {
+router.get('/', async (req, res) => {
     const result = {
         status: 'ok',
         service: 'All API',
