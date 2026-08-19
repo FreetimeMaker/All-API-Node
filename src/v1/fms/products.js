@@ -1,5 +1,7 @@
 const router = require('express').Router();
 
+const FIRST_BACKGROUND_PATH = '/assets/first.png';
+
 let products = [
     {
         id: 1,
@@ -9,7 +11,7 @@ let products = [
         currency: 'USD',
         stock: 10000000,
         category: 'Mobile Background',
-        imageUrl: null,
+        imageUrl: FIRST_BACKGROUND_PATH,
         createdAt: new Date().toISOString()
     }
 ];
@@ -102,7 +104,7 @@ router.post('/', (req, res) => {
         currency: req.body.currency || 'EUR',
         stock: req.body.stock ?? 0,
         category: req.body.category || null,
-        imageUrl: req.body.imageUrl || null,
+        imageUrl: req.body.imageUrl || DEFAULT_IMAGE_PATH,
         createdAt: new Date().toISOString()
     };
 
