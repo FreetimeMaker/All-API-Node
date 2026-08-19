@@ -45,7 +45,14 @@ async function startOAuthLogin(req, res, providerOverride) {
             });
         }
 
-        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${req.protocol}://${req.get('host') || 'localhost:3000'}/auth/callback`;
+        const envDefault = process.env.SUPABASE_DEFAULT_REDIRECT;
+        const forwardedProto = (req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0];
+        const forwardedHost = req.headers['x-forwarded-host'] || req.headers['host'] || '';
+        const proto = forwardedProto || req.protocol || 'http';
+        const host = forwardedHost || req.get('host') || 'localhost:3000';
+        const base = envDefault ? envDefault.replace(/\/+$/, '') : `${proto}://${host}`;
+        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${base}/auth/callback`;
+
         const { data, error } = await client.auth.signInWithOAuth({
             provider: normalizedProvider,
             options: {

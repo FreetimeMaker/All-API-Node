@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', true);
 
 app.use(helmet());
 app.use(cors());
