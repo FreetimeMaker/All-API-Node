@@ -22,10 +22,13 @@ router.get('/config', (req, res) => {
     });
 });
 
-router.post('/login', async (req, res) => {
+async function startOAuthLogin(req, res, providerOverride) {
     try {
-        const { provider, redirectTo } = req.body || {};
-        const normalizedProvider = typeof provider === 'string' ? provider.trim().toLowerCase() : '';
+        const provider = typeof providerOverride === 'string'
+            ? providerOverride
+            : (typeof req.body?.provider === 'string' ? req.body.provider : '');
+
+        const normalizedProvider = provider.trim().toLowerCase();
 
         if (!normalizedProvider) {
             return res.status(400).json({
@@ -42,11 +45,11 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const finalRedirectTo = redirectTo || `${req.protocol}://${req.get('host') || 'localhost:3000'}/auth/callback`;
+        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${req.protocol}://${req.get('host') || 'localhost:3000'}/auth/callback`;
         const { data, error } = await client.auth.signInWithOAuth({
             provider: normalizedProvider,
             options: {
-                redirectTo: finalRedirectTo
+                redirectTo
             }
         });
 
@@ -61,7 +64,7 @@ router.post('/login', async (req, res) => {
             message: 'OAuth login initiated',
             provider: normalizedProvider,
             redirectUrl: data?.url ?? null,
-            redirectTo: finalRedirectTo
+            redirectTo
         });
     } catch (error) {
         return res.status(500).json({
@@ -69,6 +72,19 @@ router.post('/login', async (req, res) => {
             message: error.message
         });
     }
+}
+
+router.get('/login', (req, res) => {
+    const provider = typeof req.query?.provider === 'string' ? req.query.provider : '';
+    return startOAuthLogin(req, res, provider);
+});
+
+router.get('/login/:provider', (req, res) => {
+    return startOAuthLogin(req, res, req.params.provider);
+});
+
+router.post('/login', async (req, res) => {
+    return startOAuthLogin(req, res);
 });
 
 router.post('/logout', async (req, res) => {
