@@ -51,7 +51,9 @@ async function startOAuthLogin(req, res, providerOverride) {
         const proto = forwardedProto || req.protocol || 'http';
         const host = forwardedHost || req.get('host') || 'localhost:3000';
         const base = envDefault ? envDefault.replace(/\/+$/, '') : `${proto}://${host}`;
-        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${base}/auth/callback`;
+        // Note: Supabase should redirect back to the server route that handles the callback
+        const defaultCallbackPath = '/api/v1/auth/callback';
+        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${base}${defaultCallbackPath}`;
 
         const { data, error } = await client.auth.signInWithOAuth({
             provider: normalizedProvider,
@@ -244,6 +246,81 @@ router.delete('/link-account/:accountId', async (req, res) => {
             error: 'Unauthorized',
             message: error.message
         });
+    }
+});
+
+// OAuth callback endpoints
+router.get('/callback', (req, res) => {
+    // Minimal page to capture URL fragment (access_token) and POST it to the server.
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Auth callback</title>
+  </head>
+  <body>
+    <p id="status">Processing login...</p>
+    <script>
+      (async function(){
+        try {
+          const hash = window.location.hash ? window.location.hash.substring(1) : '';
+          const params = new URLSearchParams(hash || window.location.search);
+          const payload = {};
+          for (const [k,v] of params) payload[k]=v;
+
+          // If no access_token found, show message
+          if (!payload.access_token) {
+            document.getElementById('status').innerText = 'No access token found in URL. You may close this window.';
+            return;
+          }
+
+          const resp = await fetch('/api/v1/auth/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const json = await resp.json();
+          if (resp.ok) {
+            document.getElementById('status').innerText = 'Login successful. You can close this window.';
+          } else {
+            document.getElementById('status').innerText = 'Login failed: ' + (json?.message || JSON.stringify(json));
+          }
+        } catch (err) {
+          document.getElementById('status').innerText = 'Error: ' + err.message;
+        }
+      })();
+    </script>
+  </body>
+</html>`;
+
+    res.set('Content-Type', 'text/html; charset=utf-8').status(200).send(html);
+});
+
+router.post('/callback', async (req, res) => {
+    try {
+        const { access_token, refresh_token } = req.body || {};
+
+        if (!access_token) {
+            return res.status(400).json({ error: 'Validation error', message: 'access_token is required' });
+        }
+
+        const client = getSupabaseClient();
+        if (!client) {
+            return res.status(500).json({ error: 'Configuration error', message: 'Supabase credentials are not configured' });
+        }
+
+        // Validate token and get user
+        const { data, error } = await client.auth.getUser(access_token);
+        if (error || !data?.user) {
+            return res.status(401).json({ error: 'Invalid token', message: error?.message || 'Unable to validate token' });
+        }
+
+        // Respond with the authenticated user and minimal session info
+        return res.status(200).json({ user: data.user, access_token, refresh_token });
+    } catch (err) {
+        return res.status(500).json({ error: 'Callback failed', message: err.message });
     }
 });
 
