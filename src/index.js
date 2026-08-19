@@ -8,7 +8,7 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
+app.use('/assets', express.static(path.join(__dirname, 'src/assets')));
 
 app.get('/', (req, res) => {
     res.json({
