@@ -60,10 +60,19 @@ async function startOAuthLogin(req, res, providerOverride) {
             });
         }
 
+        // If this is a browser GET request (or client expects HTML), redirect directly
+        const accept = (req.headers.accept || '').toLowerCase();
+        const isBrowserGet = req.method === 'GET' || accept.includes('text/html');
+        const redirectUrl = data?.url ?? null;
+
+        if (isBrowserGet && redirectUrl) {
+            return res.redirect(302, redirectUrl);
+        }
+
         return res.status(200).json({
             message: 'OAuth login initiated',
             provider: normalizedProvider,
-            redirectUrl: data?.url ?? null,
+            redirectUrl,
             redirectTo
         });
     } catch (error) {
