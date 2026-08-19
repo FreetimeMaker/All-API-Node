@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const health = require('./health');
+const health = require('./health/health');
 const products = require('./fms/products');
+const supabaseRoutes = require('./auth/supabase');
 
 router.use('/health', health);
 router.use('/fms/products', products);
+router.use('/auth', supabaseRoutes);
 
 router.get('/', (req, res) => {
     res.json({
@@ -14,6 +16,8 @@ router.get('/', (req, res) => {
         endpoints: {
             'cross endpoints': {
                 health: '/api/v1/health',
+                login: '/api/v1/auth/login',
+                logout: '/api/v1/auth/logout'
             },
             'Freetime Maker Shop': {
                 products: '/api/v1/fms/products',
