@@ -269,9 +269,23 @@ router.get('/callback', (req, res) => {
           const payload = {};
           for (const [k,v] of params) payload[k]=v;
 
+          // Check for error response from OAuth provider/Supabase
+          if (payload.error) {
+            const errorMsg = payload.error_description || payload.error || 'Unknown error';
+            document.getElementById('status').innerText = 'Login failed: ' + decodeURIComponent(errorMsg);
+            // Redirect back to referrer or root after 3 seconds
+            setTimeout(() => {
+              window.location.href = document.referrer || '/';
+            }, 3000);
+            return;
+          }
+
           // If no access_token found, show message
           if (!payload.access_token) {
-            document.getElementById('status').innerText = 'No access token found in URL. You may close this window.';
+            document.getElementById('status').innerText = 'No access token found in URL. Redirecting...';
+            setTimeout(() => {
+              window.location.href = document.referrer || '/';
+            }, 2000);
             return;
           }
 
@@ -283,12 +297,26 @@ router.get('/callback', (req, res) => {
 
           const json = await resp.json();
           if (resp.ok) {
-            document.getElementById('status').innerText = 'Login successful. You can close this window.';
+            document.getElementById('status').innerText = 'Login successful. Redirecting...';
+            // Store token in localStorage for client-side use if needed
+            if (json.access_token) {
+              localStorage.setItem('access_token', json.access_token);
+            }
+            // Redirect back to referrer or root after 1 second
+            setTimeout(() => {
+              window.location.href = document.referrer || '/';
+            }, 1000);
           } else {
             document.getElementById('status').innerText = 'Login failed: ' + (json?.message || JSON.stringify(json));
+            setTimeout(() => {
+              window.location.href = document.referrer || '/';
+            }, 3000);
           }
         } catch (err) {
           document.getElementById('status').innerText = 'Error: ' + err.message;
+          setTimeout(() => {
+            window.location.href = document.referrer || '/';
+          }, 3000);
         }
       })();
     </script>
@@ -300,27 +328,53 @@ router.get('/callback', (req, res) => {
 
 router.post('/callback', async (req, res) => {
     try {
-        const { access_token, refresh_token } = req.body || {};
+        const { access_token, refresh_token, error, error_description } = req.body || {};
+
+        // Handle error responses from OAuth flow
+        if (error) {
+            const message = error_description || error || 'OAuth authentication failed';
+            return res.status(401).json({
+                error: 'Authentication failed',
+                error_code: error,
+                message: decodeURIComponent(message)
+            });
+        }
 
         if (!access_token) {
-            return res.status(400).json({ error: 'Validation error', message: 'access_token is required' });
+            return res.status(400).json({
+                error: 'Validation error',
+                message: 'access_token is required'
+            });
         }
 
         const client = getSupabaseClient();
         if (!client) {
-            return res.status(500).json({ error: 'Configuration error', message: 'Supabase credentials are not configured' });
+            return res.status(500).json({
+                error: 'Configuration error',
+                message: 'Supabase credentials are not configured'
+            });
         }
 
         // Validate token and get user
-        const { data, error } = await client.auth.getUser(access_token);
-        if (error || !data?.user) {
-            return res.status(401).json({ error: 'Invalid token', message: error?.message || 'Unable to validate token' });
+        const { data, error: validateError } = await client.auth.getUser(access_token);
+        if (validateError || !data?.user) {
+            return res.status(401).json({
+                error: 'Invalid token',
+                message: validateError?.message || 'Unable to validate token'
+            });
         }
 
         // Respond with the authenticated user and minimal session info
-        return res.status(200).json({ user: data.user, access_token, refresh_token });
+        return res.status(200).json({
+            user: data.user,
+            access_token,
+            refresh_token
+        });
     } catch (err) {
-        return res.status(500).json({ error: 'Callback failed', message: err.message });
+        return res.status(500).json({
+            error: 'Callback failed',
+            message: err.message
+        });
     }
 });
 
