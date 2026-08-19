@@ -20,6 +20,8 @@ app.get('/', (req, res) => {
             'v1 endpoints': {
                 'cross endpoints': {
                     health: '/api/v1/health',
+                    login: '/api/v1/auth/login',
+                    logout: '/api/v1/auth/logout'
                 },
                 'Freetime Maker Shop endpoints': {
                     products: '/api/v1/fms/products',
