@@ -53,7 +53,16 @@ async function startOAuthLogin(req, res, providerOverride) {
         const base = envDefault ? envDefault.replace(/\/+$/, '') : `${proto}://${host}`;
         // Note: Supabase should redirect back to the server route that handles the callback
         const defaultCallbackPath = '/api/v1/auth/callback';
-        const redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${base}${defaultCallbackPath}`;
+
+        // Optional: Support a 'next' parameter to redirect to after successful auth
+        const next = req.body?.next || req.query?.next;
+        let redirectTo = req.body?.redirectTo || req.query?.redirectTo || `${base}${defaultCallbackPath}`;
+
+        // If we are using the default callback and have a 'next' URL, append it
+        if (next && redirectTo.includes(defaultCallbackPath) && !redirectTo.includes('next=')) {
+            const separator = redirectTo.includes('?') ? '&' : '?';
+            redirectTo = `${redirectTo}${separator}next=${encodeURIComponent(next)}`;
+        }
 
         const { data, error } = await client.auth.signInWithOAuth({
             provider: normalizedProvider,
@@ -251,6 +260,9 @@ router.delete('/link-account/:accountId', async (req, res) => {
 
 // OAuth callback endpoints
 router.get('/callback', (req, res) => {
+    // Disable CSP for this specific route to allow the inline script
+    res.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+
     // Minimal page to capture URL fragment (access_token) and POST it to the server.
     const html = `<!doctype html>
 <html>
@@ -258,38 +270,52 @@ router.get('/callback', (req, res) => {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Auth callback</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f4f7f9; }
+      .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 90%; width: 400px; }
+      .spinner { border: 3px solid rgba(0,0,0,.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #09f; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      #status { color: #333; line-height: 1.4; }
+    </style>
   </head>
   <body>
-    <p id="status">Processing login...</p>
+    <div class="card">
+      <div id="loader" class="spinner"></div>
+      <p id="status">Wird verarbeitet...</p>
+    </div>
     <script>
       (async function(){
+        const statusEl = document.getElementById('status');
+        const loaderEl = document.getElementById('loader');
+
         try {
           const hash = window.location.hash ? window.location.hash.substring(1) : '';
           const params = new URLSearchParams(hash || window.location.search);
           const payload = {};
           for (const [k,v] of params) payload[k]=v;
 
+          // The 'next' parameter tells us where to redirect after processing
+          const nextUrl = params.get('next') || document.referrer || '/';
+
           // Check for error response from OAuth provider/Supabase
           if (payload.error) {
-            const errorMsg = payload.error_description || payload.error || 'Unknown error';
-            document.getElementById('status').innerText = 'Login failed: ' + decodeURIComponent(errorMsg);
-            // Redirect back to referrer or root after 3 seconds
-            setTimeout(() => {
-              window.location.href = document.referrer || '/';
-            }, 3000);
+            const errorMsg = payload.error_description || payload.error || 'Unbekannter Fehler';
+            statusEl.innerText = 'Login fehlgeschlagen: ' + decodeURIComponent(errorMsg);
+            loaderEl.style.display = 'none';
+            setTimeout(() => { window.location.href = nextUrl; }, 3000);
             return;
           }
 
           // If no access_token found, show message
           if (!payload.access_token) {
-            document.getElementById('status').innerText = 'No access token found in URL. Redirecting...';
-            setTimeout(() => {
-              window.location.href = document.referrer || '/';
-            }, 2000);
+            statusEl.innerText = 'Kein Access-Token gefunden. Leite weiter...';
+            setTimeout(() => { window.location.href = nextUrl; }, 2000);
             return;
           }
 
-          const resp = await fetch('/api/v1/auth/callback', {
+          // Use the current path for the POST request
+          const callbackUrl = window.location.pathname;
+          const resp = await fetch(callbackUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -297,26 +323,46 @@ router.get('/callback', (req, res) => {
 
           const json = await resp.json();
           if (resp.ok) {
-            document.getElementById('status').innerText = 'Login successful. Redirecting...';
-            // Store token in localStorage for client-side use if needed
+            statusEl.innerText = 'Login erfolgreich! Leite weiter...';
+
+            // Tokens für den Redirect vorbereiten
+            const targetUrl = new URL(nextUrl, window.location.origin);
             if (json.access_token) {
+              // Wir hängen die Tokens als Fragment (#) an, wie es bei OAuth üblich ist
+              // Das ist sicherer als Query-Parameter, da sie nicht in Server-Logs landen
+              targetUrl.hash = `access_token=${json.access_token}&refresh_token=${json.refresh_token || ''}`;
+
+              // Backup: LocalStorage (nur falls die Website auf der gleichen Domain liegt)
               localStorage.setItem('access_token', json.access_token);
             }
-            // Redirect back to referrer or root after 1 second
+
+            // Automatischer Redirect
             setTimeout(() => {
-              window.location.href = document.referrer || '/';
-            }, 1000);
-          } else {
-            document.getElementById('status').innerText = 'Login failed: ' + (json?.message || JSON.stringify(json));
+              window.location.href = targetUrl.toString();
+            }, 800);
+
+            // Falls der automatische Redirect nicht klappt (z.B. in manchen In-App Browsern)
             setTimeout(() => {
-              window.location.href = document.referrer || '/';
+              loaderEl.style.display = 'none';
+              statusEl.innerHTML = `
+                Login erfolgreich!<br><br>
+                <a href="${targetUrl.toString()}" style="display:inline-block; padding:10px 20px; background:#09f; color:white; text-decoration:none; border-radius:5px;">
+                  Zurück zur Website
+                </a>
+              `;
             }, 3000);
+
+          } else {
+            statusEl.innerText = 'Login fehlgeschlagen: ' + (json?.message || 'Serverfehler');
+            loaderEl.style.display = 'none';
+            setTimeout(() => { window.location.href = nextUrl; }, 3000);
           }
         } catch (err) {
-          document.getElementById('status').innerText = 'Error: ' + err.message;
-          setTimeout(() => {
-            window.location.href = document.referrer || '/';
-          }, 3000);
+          console.error('Auth Error:', err);
+          statusEl.innerText = 'Fehler bei der Verarbeitung: ' + err.message;
+          loaderEl.style.display = 'none';
+          const fallback = new URLSearchParams(window.location.search).get('next') || '/';
+          setTimeout(() => { window.location.href = fallback; }, 5000);
         }
       })();
     </script>
