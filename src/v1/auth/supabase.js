@@ -299,12 +299,28 @@ router.get('/callback', (req, res) => {
 
         try {
           const hash = window.location.hash ? window.location.hash.substring(1) : '';
-          const params = new URLSearchParams(hash || window.location.search);
-          const payload = {};
-          for (const [k,v] of params) payload[k]=v;
+          const search = window.location.search ? window.location.search.substring(1) : '';
 
-          // The 'next' parameter tells us where to redirect after processing
-          const nextUrl = params.get('next') || document.referrer || '/';
+          const hashParams = new URLSearchParams(hash);
+          const searchParams = new URLSearchParams(search);
+
+          // Kombiniere alle Parameter (Query + Hash)
+          const payload = {};
+          for (const [k,v] of searchParams) payload[k]=v;
+          for (const [k,v] of hashParams) payload[k]=v;
+
+          // 'next' bevorzugt aus Query/Hash nehmen, sonst Fallback
+          let nextUrl = payload.next || '';
+
+          if (!nextUrl) {
+            // Falls kein 'next' da ist, nicht zum Provider zurückleiten
+            const ref = document.referrer;
+            if (ref && ref.includes(window.location.hostname)) {
+              nextUrl = ref;
+            } else {
+              nextUrl = '/';
+            }
+          }
 
           // Check for error response from OAuth provider/Supabase
           if (payload.error) {
