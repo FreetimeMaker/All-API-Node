@@ -370,7 +370,7 @@ router.get('/callback', (req, res) => {
             if (json.access_token) {
               // Wir hängen die Tokens als Fragment (#) an, wie es bei OAuth üblich ist
               // Das ist sicherer als Query-Parameter, da sie nicht in Server-Logs landen
-              finalTarget.hash = `access_token=${json.access_token}&refresh_token=${json.refresh_token || ''}`;
+              finalTarget.hash = \`access_token=\${json.access_token}&refresh_token=\${json.refresh_token || ''}\`;
 
               // Backup: LocalStorage (nur falls die Website auf der gleichen Domain liegt)
               localStorage.setItem('access_token', json.access_token);
@@ -384,12 +384,12 @@ router.get('/callback', (req, res) => {
             // Falls der automatische Redirect nicht klappt (z.B. in manchen In-App Browsern)
             setTimeout(() => {
               loaderEl.style.display = 'none';
-              statusEl.innerHTML = `
+              statusEl.innerHTML = \`
                 Login erfolgreich!<br><br>
-                <a href="${finalTarget.toString()}" style="display:inline-block; padding:10px 20px; background:#09f; color:white; text-decoration:none; border-radius:5px;">
+                <a href="\${finalTarget.toString()}" style="display:inline-block; padding:10px 20px; background:#09f; color:white; text-decoration:none; border-radius:5px;">
                   Zurück zur Website
                 </a>
-              `;
+              \`;
             }, 3000);
 
           } else {
