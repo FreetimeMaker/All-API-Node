@@ -1,9 +1,11 @@
 const dotenv = require('dotenv');
 const result = dotenv.config();
 
-if (result.error) {
-    console.warn('HINWEIS: Keine .env Datei gefunden oder Fehler beim Laden.');
-} else {
+// Auf Plattformen wie Vercel werden Umgebungsvariablen direkt bereitgestellt,
+// daher ist eine fehlende .env Datei dort normal.
+if (result.error && !process.env.VERCEL) {
+    console.warn('HINWEIS: Keine .env Datei gefunden (lokale Entwicklung?).');
+} else if (!result.error) {
     console.log('.env Konfiguration geladen.');
 }
 
