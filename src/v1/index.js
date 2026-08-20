@@ -4,10 +4,12 @@ const axios = require('axios');
 const health = require('./health/health');
 const products = require('./fms/products');
 const supabaseRoutes = require('./auth/supabase');
+const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 
 router.use('/health', health);
 router.use('/fms/products', products);
 router.use('/auth', supabaseRoutes);
+router.use('/geoweather/subscriptions', geoWeatherSubscriptions);
 
 router.get('/', (req, res) => {
     res.json({
