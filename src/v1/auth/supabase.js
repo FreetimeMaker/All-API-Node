@@ -322,19 +322,35 @@ router.get('/callback', (req, res) => {
             }
           }
 
+          // Robustere URL-Erkennung für den Redirect
+          let finalTarget;
+          try {
+            if (nextUrl.startsWith('http') || nextUrl.startsWith('geoweather://')) {
+              finalTarget = new URL(nextUrl);
+            } else if (nextUrl.includes('.') && !nextUrl.startsWith('/')) {
+              // Sieht aus wie eine Domain ohne Protokoll (z.B. all-api-front-end.vercel.app)
+              finalTarget = new URL('https://' + nextUrl);
+            } else {
+              // Relativer Pfad
+              finalTarget = new URL(nextUrl, window.location.origin);
+            }
+          } catch (e) {
+            finalTarget = new URL('/', window.location.origin);
+          }
+
           // Check for error response from OAuth provider/Supabase
           if (payload.error) {
             const errorMsg = payload.error_description || payload.error || 'Unbekannter Fehler';
             statusEl.innerText = 'Login fehlgeschlagen: ' + decodeURIComponent(errorMsg);
             loaderEl.style.display = 'none';
-            setTimeout(() => { window.location.href = nextUrl; }, 3000);
+            setTimeout(() => { window.location.href = finalTarget.toString(); }, 3000);
             return;
           }
 
           // If no access_token found, show message
           if (!payload.access_token) {
             statusEl.innerText = 'Kein Access-Token gefunden. Leite weiter...';
-            setTimeout(() => { window.location.href = nextUrl; }, 2000);
+            setTimeout(() => { window.location.href = finalTarget.toString(); }, 2000);
             return;
           }
 
@@ -351,11 +367,10 @@ router.get('/callback', (req, res) => {
             statusEl.innerText = 'Login erfolgreich! Leite weiter...';
 
             // Tokens für den Redirect vorbereiten
-            const targetUrl = new URL(nextUrl, window.location.origin);
             if (json.access_token) {
               // Wir hängen die Tokens als Fragment (#) an, wie es bei OAuth üblich ist
               // Das ist sicherer als Query-Parameter, da sie nicht in Server-Logs landen
-              targetUrl.hash = \`access_token=\${json.access_token}&refresh_token=\${json.refresh_token || ''}\`;
+              finalTarget.hash = `access_token=${json.access_token}&refresh_token=${json.refresh_token || ''}`;
 
               // Backup: LocalStorage (nur falls die Website auf der gleichen Domain liegt)
               localStorage.setItem('access_token', json.access_token);
@@ -363,24 +378,24 @@ router.get('/callback', (req, res) => {
 
             // Automatischer Redirect
             setTimeout(() => {
-              window.location.href = targetUrl.toString();
+              window.location.href = finalTarget.toString();
             }, 800);
 
             // Falls der automatische Redirect nicht klappt (z.B. in manchen In-App Browsern)
             setTimeout(() => {
               loaderEl.style.display = 'none';
-              statusEl.innerHTML = \`
+              statusEl.innerHTML = `
                 Login erfolgreich!<br><br>
-                <a href="\${targetUrl.toString()}" style="display:inline-block; padding:10px 20px; background:#09f; color:white; text-decoration:none; border-radius:5px;">
+                <a href="${finalTarget.toString()}" style="display:inline-block; padding:10px 20px; background:#09f; color:white; text-decoration:none; border-radius:5px;">
                   Zurück zur Website
                 </a>
-              \`;
+              `;
             }, 3000);
 
           } else {
             statusEl.innerText = 'Login fehlgeschlagen: ' + (json?.message || 'Serverfehler');
             loaderEl.style.display = 'none';
-            setTimeout(() => { window.location.href = nextUrl; }, 3000);
+            setTimeout(() => { window.location.href = finalTarget.toString(); }, 3000);
           }
         } catch (err) {
           console.error('Auth Error:', err);
