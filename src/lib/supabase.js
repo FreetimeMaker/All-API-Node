@@ -4,6 +4,14 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Überprüfung der erforderlichen Umgebungsvariablen
+if (!supabaseUrl) {
+    console.warn('WARNUNG: SUPABASE_URL ist nicht in der .env Datei definiert.');
+}
+if (!supabaseAnonKey) {
+    console.warn('WARNUNG: SUPABASE_ANON_KEY ist nicht in der .env Datei definiert.');
+}
+
 function getSupabaseClient({ useServiceRole = false } = {}) {
     const url = supabaseUrl;
     const key = useServiceRole ? (supabaseServiceRoleKey || supabaseAnonKey) : supabaseAnonKey;

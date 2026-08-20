@@ -3,6 +3,11 @@ const { getAuthenticatedUser, getSupabaseClient } = require('../../lib/supabase'
 
 const linkedAccounts = [];
 
+// GitHub OAuth Check (falls lokal benötigt)
+if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+    console.warn('HINWEIS: GitHub OAuth Zugangsdaten (GITHUB_CLIENT_ID/SECRET) fehlen in .env.');
+}
+
 function getUserLinkedAccounts(userId) {
     return linkedAccounts.filter(account => account.userId === userId);
 }
@@ -46,6 +51,10 @@ async function startOAuthLogin(req, res, providerOverride) {
         }
 
         const envDefault = process.env.SUPABASE_DEFAULT_REDIRECT;
+        if (!envDefault) {
+            console.warn('HINWEIS: SUPABASE_DEFAULT_REDIRECT ist nicht gesetzt. Nutze automatische Host-Erkennung.');
+        }
+
         const forwardedProto = (req.headers['x-forwarded-proto'] || req.protocol || '').split(',')[0];
         const forwardedHost = req.headers['x-forwarded-host'] || req.headers['host'] || '';
         const proto = forwardedProto || req.protocol || 'http';

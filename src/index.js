@@ -1,4 +1,11 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
+const result = dotenv.config();
+
+if (result.error) {
+    console.warn('HINWEIS: Keine .env Datei gefunden oder Fehler beim Laden.');
+} else {
+    console.log('.env Konfiguration geladen.');
+}
 
 const express = require('express');
 const cors = require('cors');
@@ -33,5 +40,16 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/v1', require('./v1'));
+
+// Falls die Datei direkt gestartet wird, Server starten
+if (require.main === module) {
+    const PORT = process.env.PORT || 3000;
+    if (!process.env.PORT) {
+        console.warn(`HINWEIS: PORT ist nicht in .env definiert. Nutze Standardport ${PORT}.`);
+    }
+    app.listen(PORT, () => {
+        console.log(`Server läuft auf Port ${PORT}`);
+    });
+}
 
 module.exports = app;

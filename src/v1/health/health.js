@@ -1,6 +1,10 @@
 const axios = require('axios');
 const router = require('express').Router();
 
+if (!process.env.OXAPAY_API_KEY) {
+    console.warn('HINWEIS: OXAPAY_API_KEY fehlt in der .env Datei. Manche Health-Checks könnten eingeschränkt sein.');
+}
+
 router.get('/', async (req, res) => {
     const result = {
         status: 'ok',
