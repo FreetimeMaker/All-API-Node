@@ -5,13 +5,13 @@ const health = require('./health/health');
 const products = require('./fms/products');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
-const fdowsApps = require('./fdows/apps');
+const fdowsApps = require('./ftop/apps');
 
 router.use('/health', health);
 router.use('/fms/products', products);
 router.use('/auth', supabaseRoutes);
 router.use('/geoweather/subscriptions', geoWeatherSubscriptions);
-router.use('/fdows/apps', fdowsApps);
+router.use('/ftop/apps', ftopApps);
 
 router.get('/', (req, res) => {
     res.json({
