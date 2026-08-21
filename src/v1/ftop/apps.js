@@ -8,7 +8,7 @@ const mockApps = [
     { id: '2', name: 'App Two', description: 'Another great tool', likes: 5, developer: 'Dev B' }
 ];
 
-// GET /api/v1/fdows/apps - List all apps
+// GET /api/v1/ftop/apps - List all apps
 router.get('/', async (req, res) => {
     try {
         const client = getSupabaseClient();
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/v1/fdows/apps/:id - Get app details
+// GET /api/v1/ftop/apps/:id - Get app details
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -52,7 +52,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/v1/fdows/apps/:id/like - Like an app
+// POST /api/v1/ftop/apps/:id/like - Like an app
 router.post('/:id/like', async (req, res) => {
     const { id } = req.params;
     let user = null;
@@ -105,7 +105,7 @@ router.post('/:id/like', async (req, res) => {
     }
 });
 
-// POST /api/v1/fdows/apps - Add or update an app (Admin or developer check could be added here)
+// POST /api/v1/ftop/apps - Add or update an app (Admin or developer check could be added here)
 router.post('/', async (req, res) => {
     try {
         const appData = req.body;
