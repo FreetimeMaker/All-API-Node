@@ -8,7 +8,7 @@ const mockApps = [
     { id: '2', name: 'App Two', description: 'Another great tool', likes: 5, developer: 'Dev B' }
 ];
 
-// GET /api/v1/ftop/apps - List all apps
+// GET /api/v1/fport/apps - List all apps
 router.get('/', async (req, res) => {
     try {
         const client = getSupabaseClient();
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
         }
 
         const { data, error } = await client
-            .from('fdows_apps')
+            .from('fport_apps')
             .select('*');
 
         if (error) throw error;
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/v1/ftop/apps/:id - Get app details
+// GET /api/v1/fport/apps/:id - Get app details
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -40,7 +40,7 @@ router.get('/:id', async (req, res) => {
         }
 
         const { data, error } = await client
-            .from('fdows_apps')
+            .from('fport_apps')
             .select('*')
             .eq('id', id)
             .single();
@@ -52,7 +52,7 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/v1/ftop/apps/:id/like - Like an app
+// POST /api/v1/fport/apps/:id/like - Like an app
 router.post('/:id/like', async (req, res) => {
     const { id } = req.params;
     let user = null;
@@ -80,9 +80,9 @@ router.post('/:id/like', async (req, res) => {
         const client = getSupabaseClient();
         if (!client) throw new Error('Supabase client not available');
 
-        // Insert or update like in a hypothetical 'fdows_likes' table
+        // Insert or update like in a hypothetical 'fport_likes' table
         const { data, error } = await client
-            .from('fdows_likes')
+            .from('fport_likes')
             .upsert({ user_id: user.id, app_id: id, created_at: new Date().toISOString() })
             .select();
 
@@ -105,25 +105,32 @@ router.post('/:id/like', async (req, res) => {
     }
 });
 
-// POST /api/v1/ftop/apps - Add or update an app (Admin or developer check could be added here)
+// POST /api/v1/fport/apps - Add or update an app
 router.post('/', async (req, res) => {
     try {
-        const appData = req.body;
-        const client = getSupabaseClient();
+        const user = await getAuthenticatedUser(req);
+        const appData = {
+            ...req.body,
+            created_by: user.id
+        };
 
+        const client = getSupabaseClient();
         if (!client) {
             return res.status(503).json({ error: 'Cloud storage unavailable' });
         }
 
         const { data, error } = await client
-            .from('fdows_apps')
+            .from('fport_apps')
             .upsert(appData)
             .select();
 
         if (error) throw error;
         res.status(201).json(data);
     } catch (error) {
-        res.status(400).json({ error: 'Failed to save app', details: error.message });
+        res.status(error.message.includes('Authorization') ? 401 : 400).json({
+            error: 'Failed to save app',
+            details: error.message
+        });
     }
 });
 

@@ -5,13 +5,13 @@ const health = require('./health/health');
 const products = require('./fms/products');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
-const fdowsApps = require('./ftop/apps');
+const fportApps = require('./fport/apps');
 
 router.use('/health', health);
 router.use('/fms/products', products);
 router.use('/auth', supabaseRoutes);
 router.use('/geoweather/subscriptions', geoWeatherSubscriptions);
-router.use('/ftop/apps', ftopApps);
+router.use('/fport/apps', fportApps);
 
 router.get('/', (req, res) => {
     res.json({
@@ -26,6 +26,9 @@ router.get('/', (req, res) => {
             'Freetime Maker Shop': {
                 products: '/api/v1/fms/products',
             },
+            'FPort Store': {
+                apps: '/api/v1/fport/apps',
+            }
         }
     });
 });
