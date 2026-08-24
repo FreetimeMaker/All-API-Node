@@ -25,9 +25,6 @@ router.get('/', (req, res) => {
             },
             'Freetime Maker Shop': {
                 products: '/api/v1/fms/products',
-            },
-            'FPort Store': {
-                apps: '/api/v1/fport/apps',
             }
         }
     });

@@ -9,6 +9,7 @@ CREATE TABLE public.fport_apps (
     name TEXT NOT NULL,
     description TEXT,
     developer TEXT,
+    platform TEXT,
     url TEXT,
     icon_url TEXT,
     created_by UUID REFERENCES auth.users(id) DEFAULT auth.uid(),

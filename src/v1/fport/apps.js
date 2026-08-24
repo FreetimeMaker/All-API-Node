@@ -4,8 +4,8 @@ const { getAuthenticatedUser, getSupabaseClient } = require('../../lib/supabase'
 
 // Mock data for initial testing if Supabase is not available or table is empty
 const mockApps = [
-    { id: '1', name: 'App One', description: 'A cool open source app', likes: 10, developer: 'Dev A' },
-    { id: '2', name: 'App Two', description: 'Another great tool', likes: 5, developer: 'Dev B' }
+    { id: '1', name: 'App One', description: 'A cool open source app', likes: 10, developer: 'Dev A', platform: 'Web' },
+    { id: '2', name: 'App Two', description: 'Another great tool', likes: 5, developer: 'Dev B', platform: 'Android' }
 ];
 
 // GET /api/v1/fport/apps - List all apps
