@@ -23,8 +23,14 @@ router.get('/', (req, res) => {
                 login: '/api/v1/auth/login',
                 logout: '/api/v1/auth/logout'
             },
-            'Freetime Maker Shop': {
+            'GeoWeather endpoints': {
+                subscriptions: '/api/v1/geoweather/subscriptions'
+            },
+            'Freetime Maker Shop endpoints': {
                 products: '/api/v1/fms/products',
+            },
+            'F-Port endpoints': {
+                apps: '/api/v1/fport/apps'
             }
         }
     });
