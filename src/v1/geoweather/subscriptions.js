@@ -2,26 +2,36 @@ const router = require('express').Router();
 const { getAuthenticatedUser } = require('../../lib/supabase');
 const Subscription = require('./models/Subscription');
 
-async function authenticate(req, res, next) {
+async function optionalAuth(req, res, next) {
     try {
-        const user = await getAuthenticatedUser(req);
-        req.user = user;
-        next();
-    } catch (error) {
-        res.status(401).json({
-            error: 'Unauthorized',
-            message: 'You have to be logged in to access GeoWeather Subscriptions.',
-        });
+        const user = await getAuthenticatedUser(req, { requireConfig: false });
+        req.user = user || null;
+    } catch {
+        req.user = null;
     }
+
+    if (!req.user) {
+        req.sessionId = req.headers['x-session-id'] || null;
+    }
+
+    next();
 }
 
-router.use(authenticate);
+router.use(optionalAuth);
 
 router.get('/', async (req, res) => {
     try {
-        const subscriptions = await Subscription.getAll(req.user.id);
+        const userId = req.user?.id || null;
+        const sessionId = req.sessionId || null;
+
+        if (!userId && !sessionId) {
+            return res.json({ subscriptions: [] });
+        }
+
+        const subscriptions = await Subscription.getAll(userId, sessionId);
         res.json({
-            userId: req.user.id,
+            userId: userId || null,
+            sessionId: sessionId || null,
             subscriptions,
         });
     } catch (error) {
@@ -34,7 +44,9 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
     try {
-        const subscription = await Subscription.getById(req.params.id, req.user.id);
+        const userId = req.user?.id || null;
+        const sessionId = req.sessionId || null;
+        const subscription = await Subscription.getById(req.params.id, userId, sessionId);
         res.json(subscription);
     } catch (error) {
         res.status(404).json({
@@ -47,6 +59,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { location, type, coordinates } = req.body;
+        const userId = req.user?.id || null;
+        const sessionId = req.sessionId || null;
 
         if (!location) {
             return res.status(400).json({
@@ -62,7 +76,7 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const subscription = await Subscription.create(req.user.id, {
+        const subscription = await Subscription.create(userId, sessionId, {
             location,
             type,
             coordinates,
@@ -83,6 +97,8 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
     try {
         const { location, type, coordinates, is_active } = req.body;
+        const userId = req.user?.id || null;
+        const sessionId = req.sessionId || null;
 
         if (type && !Object.values(Subscription.TYPES).includes(type)) {
             return res.status(400).json({
@@ -91,7 +107,7 @@ router.patch('/:id', async (req, res) => {
             });
         }
 
-        const subscription = await Subscription.update(req.params.id, req.user.id, {
+        const subscription = await Subscription.update(req.params.id, userId, sessionId, {
             location,
             type,
             coordinates,
@@ -112,7 +128,9 @@ router.patch('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
-        const removed = await Subscription.remove(req.params.id, req.user.id);
+        const userId = req.user?.id || null;
+        const sessionId = req.sessionId || null;
+        const removed = await Subscription.remove(req.params.id, userId, sessionId);
         res.json({
             message: 'Subscription deleted successfully',
             subscription: removed,

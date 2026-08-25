@@ -28,50 +28,62 @@ const Subscription = {
     },
 
     getClient() {
-        return getSupabaseClient();
+        return getSupabaseClient({ useServiceRole: true });
     },
 
-    async getAll(userId) {
+    async getAll(userId, sessionId) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
-        const { data, error } = await client
-            .from(TABLE)
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        let query = client.from(TABLE).select('*');
 
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            return [];
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
     },
 
-    async getById(id, userId) {
+    async getById(id, userId, sessionId) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
-        const { data, error } = await client
-            .from(TABLE)
-            .select('*')
-            .eq('id', id)
-            .eq('user_id', userId)
-            .single();
+        let query = client.from(TABLE).select('*').eq('id', id);
 
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            throw new Error('No identity provided');
+        }
+
+        const { data, error } = await query.single();
         if (error) throw error;
         return data;
     },
 
-    async create(userId, { location, type = this.TYPES.DAILY, coordinates = null }) {
+    async create(userId, sessionId, { location, type = this.TYPES.DAILY, coordinates = null }) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
+        const record = {
+            user_id: userId || null,
+            session_id: sessionId || null,
+            location,
+            type,
+            coordinates: coordinates ? JSON.stringify(coordinates) : null,
+        };
+
         const { data, error } = await client
             .from(TABLE)
-            .insert({
-                user_id: userId,
-                location,
-                type,
-                coordinates: coordinates ? JSON.stringify(coordinates) : null,
-            })
+            .insert(record)
             .select()
             .single();
 
@@ -79,7 +91,7 @@ const Subscription = {
         return data;
     },
 
-    async update(id, userId, updates) {
+    async update(id, userId, sessionId, updates) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
@@ -95,58 +107,64 @@ const Subscription = {
             throw new Error('No valid fields to update');
         }
 
-        const { data, error } = await client
-            .from(TABLE)
-            .update(allowed)
-            .eq('id', id)
-            .eq('user_id', userId)
-            .select()
-            .single();
+        let query = client.from(TABLE).update(allowed).eq('id', id);
 
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            throw new Error('No identity provided');
+        }
+
+        const { data, error } = await query.select().single();
         if (error) throw error;
         return data;
     },
 
-    async remove(id, userId) {
+    async remove(id, userId, sessionId) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
-        const { data, error } = await client
-            .from(TABLE)
-            .delete()
-            .eq('id', id)
-            .eq('user_id', userId)
-            .select()
-            .single();
+        let query = client.from(TABLE).delete().eq('id', id);
 
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            throw new Error('No identity provided');
+        }
+
+        const { data, error } = await query.select().single();
         if (error) throw error;
         return data;
     },
 
-    async getActiveCount(userId) {
+    async getActiveCount(userId, sessionId) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
-        const { count, error } = await client
+        let query = client
             .from(TABLE)
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
             .eq('is_active', true);
 
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (sessionId) {
+            query = query.eq('session_id', sessionId);
+        } else {
+            return 0;
+        }
+
+        const { count, error } = await query;
         if (error) throw error;
         return count || 0;
     },
 
     getFeatures(type) {
         return this.FEATURES[type] || this.FEATURES.daily;
-    },
-
-    canAddLocation(userId, type) {
-        const features = this.getFeatures(type);
-        return async () => {
-            const count = await this.getActiveCount(userId);
-            return count < features.maxLocations;
-        };
     },
 };
 
