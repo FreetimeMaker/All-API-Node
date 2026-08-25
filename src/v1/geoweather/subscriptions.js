@@ -19,6 +19,17 @@ async function optionalAuth(req, res, next) {
 
 router.use(optionalAuth);
 
+router.get('/plans', (req, res) => {
+    res.json({
+        plans: {
+            daily: Subscription.FEATURES.daily,
+            hourly: Subscription.FEATURES.hourly,
+            alerts: Subscription.FEATURES.alerts,
+        },
+        types: Object.values(Subscription.TYPES),
+    });
+});
+
 router.get('/', async (req, res) => {
     try {
         const userId = req.user?.id || null;
