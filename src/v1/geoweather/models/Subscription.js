@@ -7,12 +7,13 @@ const Subscription = {
         FREE: 'free',
         FREEMIUM: 'freemium',
         PREMIUM: 'premium',
+        ULTRIMIUM: 'ultrimium',
     },
 
     FEATURES: {
         free: {
             maxLocations: 5,
-            forecastDays: 7,
+            forecastDays: 1,
             notifications: false,
         },
         freemium: {
@@ -22,7 +23,12 @@ const Subscription = {
         },
         premium: {
             maxLocations: 15,
-            forecastDays: 1,
+            forecastDays: 7,
+            notifications: true,
+        },
+        ultrimium: {
+            maxLocations: 20,
+            forecastDays: 14,
             notifications: true,
         },
     },

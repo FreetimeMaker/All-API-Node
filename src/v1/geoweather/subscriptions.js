@@ -23,8 +23,9 @@ router.get('/plans', (req, res) => {
     res.json({
         plans: {
             free: Subscription.FEATURES.free,
-            hourly: Subscription.FEATURES.freemium,
-            alerts: Subscription.FEATURES.premium,
+            freemium: Subscription.FEATURES.freemium,
+            premium: Subscription.FEATURES.premium,
+            ultrimium: Subscription.FEATURES.ultrimium,
         },
         types: Object.values(Subscription.TYPES),
     });
