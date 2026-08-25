@@ -22,9 +22,9 @@ router.use(optionalAuth);
 router.get('/plans', (req, res) => {
     res.json({
         plans: {
-            daily: Subscription.FEATURES.daily,
-            hourly: Subscription.FEATURES.hourly,
-            alerts: Subscription.FEATURES.alerts,
+            free: Subscription.FEATURES.free,
+            hourly: Subscription.FEATURES.freemium,
+            alerts: Subscription.FEATURES.premium,
         },
         types: Object.values(Subscription.TYPES),
     });

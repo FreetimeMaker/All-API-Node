@@ -4,23 +4,23 @@ const TABLE = 'geoweather_subscriptions';
 
 const Subscription = {
     TYPES: {
-        DAILY: 'daily',
-        HOURLY: 'hourly',
-        ALERTS: 'alerts',
+        FREE: 'free',
+        FREEMIUM: 'freemium',
+        PREMIUM: 'premium',
     },
 
     FEATURES: {
-        daily: {
+        free: {
             maxLocations: 5,
             forecastDays: 7,
             notifications: false,
         },
-        hourly: {
+        freemium: {
             maxLocations: 10,
             forecastDays: 3,
             notifications: true,
         },
-        alerts: {
+        premium: {
             maxLocations: 15,
             forecastDays: 1,
             notifications: true,
