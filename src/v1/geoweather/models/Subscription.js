@@ -75,7 +75,7 @@ const Subscription = {
         return data;
     },
 
-    async create(userId, sessionId, { location, type = this.TYPES.DAILY, coordinates = null }) {
+    async create(userId, sessionId, { location, type = this.TYPES.FREE, coordinates = null }) {
         const client = this.getClient();
         if (!client) throw new Error('Supabase client not available');
 
@@ -170,7 +170,7 @@ const Subscription = {
     },
 
     getFeatures(type) {
-        return this.FEATURES[type] || this.FEATURES.daily;
+        return this.FEATURES[type] || this.FEATURES.free;
     },
 };
 

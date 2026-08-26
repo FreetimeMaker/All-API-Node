@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { getAuthenticatedUser } = require('../../lib/supabase');
 const Subscription = require('./models/Subscription');
+const Code = require('./models/Code');
 
 async function optionalAuth(req, res, next) {
     try {
@@ -29,6 +30,45 @@ router.get('/plans', (req, res) => {
         },
         types: Object.values(Subscription.TYPES),
     });
+});
+
+router.post('/redeem', async (req, res) => {
+    try {
+        const { code } = req.body;
+        const userId = req.user?.id || null;
+
+        if (!code) {
+            return res.status(400).json({
+                error: 'Validation Error',
+                message: 'A code is required.',
+            });
+        }
+
+        if (!userId) {
+            return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'You must be logged in to redeem a code.',
+            });
+        }
+
+        const { code: redeemedCode, type } = await Code.redeem(code, userId);
+
+        const features = Subscription.getFeatures(type);
+
+        res.json({
+            message: 'Code redeemed successfully',
+            subscription: {
+                type,
+                features,
+            },
+        });
+    } catch (error) {
+        const status = error.message.includes('already used') ? 409 : 400;
+        res.status(status).json({
+            error: 'Redeem Failed',
+            message: error.message,
+        });
+    }
 });
 
 router.get('/', async (req, res) => {

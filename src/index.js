@@ -34,7 +34,9 @@ app.get('/', (req, res) => {
                     logout: '/api/v1/auth/logout'
                 },
                 'GeoWeather endpoints': {
-                    subscriptions: '/api/v1/geoweather/subscriptions'
+                    subscriptions: '/api/v1/geoweather/subscriptions',
+                    plans: '/api/v1/geoweather/subscriptions/plans',
+                    redeem: '/api/v1/geoweather/subscriptions/redeem',
                 },
                 'Freetime Maker Shop endpoints': {
                     products: '/api/v1/fms/products',
