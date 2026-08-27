@@ -53,7 +53,15 @@ router.post('/redeem', async (req, res) => {
 
         const { code: redeemedCode, type } = await Code.redeem(code, userId);
 
-        const subscription = await Subscription.applyCodeUpgrade(userId, type, redeemedCode.id);
+        let subscription;
+        try {
+            subscription = await Subscription.applyCodeUpgrade(userId, type, redeemedCode.id);
+        } catch (e) {
+            console.error('applyCodeUpgrade failed for user', userId, 'code', code, 'error:', e.message);
+            throw e;
+        }
+
+        await Code.markAsUsed(redeemedCode.id, userId);
 
         const features = Subscription.getFeatures(type);
 
@@ -65,6 +73,7 @@ router.post('/redeem', async (req, res) => {
             },
         });
     } catch (error) {
+        console.error('Redeem error:', error.message);
         const status = error.message.includes('already used') ? 409 : 400;
         res.status(status).json({
             error: 'Redeem Failed',

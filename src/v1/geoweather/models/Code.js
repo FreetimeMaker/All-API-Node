@@ -31,6 +31,13 @@ const Code = {
             throw new Error('Code already used');
         }
 
+        return { code: existing, type: existing.type };
+    },
+
+    async markAsUsed(codeId, userId) {
+        const client = this.getClient();
+        if (!client) throw new Error('Supabase client not available');
+
         const { data, error } = await client
             .from(TABLE)
             .update({
@@ -38,12 +45,12 @@ const Code = {
                 used_by: userId,
                 used_at: new Date().toISOString(),
             })
-            .eq('id', existing.id)
+            .eq('id', codeId)
             .select()
             .single();
 
         if (error) throw error;
-        return { code: data, type: existing.type };
+        return data;
     },
 
     async isCodeValid(code) {

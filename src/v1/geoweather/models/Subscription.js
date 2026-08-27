@@ -183,11 +183,10 @@ const Subscription = {
             .eq('user_id', userId)
             .eq('is_active', true)
             .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
 
-        if (error && error.code !== 'PGRST116') throw error;
-        return data;
+        if (error) throw error;
+        return (data && data.length > 0) ? data[0] : null;
     },
 
     async applyCodeUpgrade(userId, type, codeId) {
