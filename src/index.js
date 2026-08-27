@@ -20,7 +20,7 @@ app.set('trust proxy', true);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use('/assets', express.static(path.join(__dirname, 'src/assets')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 app.get('/', (req, res) => {
     res.json({
