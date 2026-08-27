@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API!',
         api: {
-            version: '1.3.0',
+            version: '1.4.0',
             'v1 endpoints': {
                 'cross endpoints': {
                     health: '/api/v1/health',
@@ -37,9 +37,6 @@ app.get('/', (req, res) => {
                     subscriptions: '/api/v1/geoweather/subscriptions',
                     plans: '/api/v1/geoweather/subscriptions/plans',
                     redeem: '/api/v1/geoweather/subscriptions/redeem',
-                },
-                'Freetime Maker Shop endpoints': {
-                    products: '/api/v1/fms/products',
                 },
                 'F-Port endpoints': {
                     apps: '/api/v1/fport/apps'

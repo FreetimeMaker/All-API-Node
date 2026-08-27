@@ -2,14 +2,12 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const health = require('./health/health');
-const products = require('./fms/products');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
 
 router.use('/health', health);
-router.use('/fms/products', products);
 router.use('/auth', supabaseRoutes);
 router.use('/geoweather/subscriptions', geoWeatherSubscriptions);
 router.use('/fport/apps', fportApps);
@@ -18,7 +16,7 @@ router.use('/wallora/wallpapers', walloraWallpapers);
 router.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API v1!',
-        version: '1.3.0',
+        version: '1.4.0',
         endpoints: {
             'cross endpoints': {
                 health: '/api/v1/health',
@@ -29,9 +27,6 @@ router.get('/', (req, res) => {
                 subscriptions: '/api/v1/geoweather/subscriptions',
                 plans: '/api/v1/geoweather/subscriptions/plans',
                 redeem: '/api/v1/geoweather/subscriptions/redeem',
-            },
-            'Freetime Maker Shop endpoints': {
-                products: '/api/v1/fms/products',
             },
             'F-Port endpoints': {
                 apps: '/api/v1/fport/apps'
