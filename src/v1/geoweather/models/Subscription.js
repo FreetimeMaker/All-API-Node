@@ -172,6 +172,59 @@ const Subscription = {
     getFeatures(type) {
         return this.FEATURES[type] || this.FEATURES.free;
     },
+
+    async getActiveSubscription(userId) {
+        const client = this.getClient();
+        if (!client) throw new Error('Supabase client not available');
+
+        const { data, error } = await client
+            .from(TABLE)
+            .select('*')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
+    },
+
+    async applyCodeUpgrade(userId, type, codeId) {
+        const client = this.getClient();
+        if (!client) throw new Error('Supabase client not available');
+
+        const existing = await this.getActiveSubscription(userId);
+
+        if (existing) {
+            const { data, error } = await client
+                .from(TABLE)
+                .update({
+                    type,
+                    redeemed_code_id: codeId,
+                })
+                .eq('id', existing.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        }
+
+        const { data, error } = await client
+            .from(TABLE)
+            .insert({
+                user_id: userId,
+                location: 'default',
+                type,
+                redeemed_code_id: codeId,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
 };
 
 module.exports = Subscription;

@@ -53,12 +53,14 @@ router.post('/redeem', async (req, res) => {
 
         const { code: redeemedCode, type } = await Code.redeem(code, userId);
 
+        const subscription = await Subscription.applyCodeUpgrade(userId, type, redeemedCode.id);
+
         const features = Subscription.getFeatures(type);
 
         res.json({
             message: 'Code redeemed successfully',
             subscription: {
-                type,
+                ...subscription,
                 features,
             },
         });
