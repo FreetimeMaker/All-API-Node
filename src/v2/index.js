@@ -6,6 +6,7 @@ const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
+const arcadeRoutes = require('./arcade');
 
 // Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen:
 // { default: <router> }, { default: { default: <router> } }, Memo-Wrapper-
@@ -37,12 +38,12 @@ router.use('/auth', asRouter(supabaseRoutes));
 router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
 router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
+router.use('/arcade', asRouter(arcadeRoutes));
 
-router.get('/api/v1', (req, res) => {
+router.get('/api/v2', (req, res) => {
     res.json({
         message: 'Welcome to the All API v1!',
-        version: '1.5.0',
-        message: 'This API Version is deprecated please visit /api/v2 instead of /api/v1.',
+        version: '2.1.0',
         endpoints: {
             'cross endpoints': {
                 health: '/health',

@@ -1,17 +1,27 @@
 {
   "name": "all-api-node",
-  "version": "1.4.0",
+  "version": "2.1.0",
   "description": "The API for almost everything from Freetime Maker.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-bubblegum": "^5.1.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.112.3",
     "axios": "^1.19.0",
+    "bs58": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "helmet": "^8.3.0"
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
