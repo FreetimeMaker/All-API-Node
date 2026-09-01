@@ -1,4 +1,4 @@
-# API
+# All API
 
 The central backend for all Freetime Maker services. Built with Express.js and deployed as a Vercel serverless function.
 
@@ -11,14 +11,6 @@ The central backend for all Freetime Maker services. Built with Express.js and d
 | **F-Port** | Open-source app directory with cloud-synced likes |
 | **Sol Arcade** | Compressed NFT (cNFT) Arcade Pass minting on Solana with limited plays per pass |
 | **Auth** | Supabase OAuth login/logout for the dashboard |
-
-## Quick Start
-
-```bash
-cp .env.example .env      # fill in values
-npm install
-npm start                 # http://localhost:3000
-```
 
 ## Environment Variables
 
