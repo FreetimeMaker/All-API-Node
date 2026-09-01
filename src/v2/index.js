@@ -40,10 +40,10 @@ router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
 
-router.get('/api/v2', (req, res) => {
+router.get('/v2', (req, res) => {
     res.json({
-        message: 'Welcome to the All API v1!',
-        version: '2.1.0',
+        message: 'Welcome to the All API v2!',
+        version: '2.2.0',
         endpoints: {
             'cross endpoints': {
                 health: '/health',
@@ -60,6 +60,13 @@ router.get('/api/v2', (req, res) => {
             },
             'Wallora endpoints': {
                 wallpapers: '/wallora/wallpapers'
+            },
+            'Sol Arcade endpoints': {
+                info: '/v2/arcade',
+                challenge: '/v2/arcade/challenge',
+                login: '/v2/arcade/login',
+                me: '/v2/arcade/me',
+                setup: '/v2/arcade/setup'
             }
         }
     });

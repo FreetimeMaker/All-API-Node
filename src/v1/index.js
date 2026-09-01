@@ -38,11 +38,11 @@ router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
 router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 
-router.get('/api/v1', (req, res) => {
+router.get('/v1', (req, res) => {
     res.json({
         message: 'Welcome to the All API v1!',
         version: '1.5.0',
-        message: 'This API Version is deprecated please visit /api/v2 instead of /api/v1.',
+        message: 'This API Version is deprecated please visit /v2 instead of /v1.',
         endpoints: {
             'cross endpoints': {
                 health: '/health',

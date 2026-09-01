@@ -26,55 +26,55 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API!',
         api: {
-            version: '2.1.0',
+            version: '2.2.0',
             'old v1 endpoints': {
                 'cross endpoints': {
-                    health: '/api/v1/health',
-                    login: '/api/v1/auth/login',
-                    logout: '/api/v1/auth/logout'
+                    health: '/v1/health',
+                    login: '/v1/auth/login',
+                    logout: '/v1/auth/logout'
                 },
                 'GeoWeather endpoints': {
-                    subscriptions: '/api/v1/geoweather/subscriptions',
-                    plans: '/api/v1/geoweather/subscriptions/plans',
-                    redeem: '/api/v1/geoweather/subscriptions/redeem',
+                    subscriptions: '/v1/geoweather/subscriptions',
+                    plans: '/v1/geoweather/subscriptions/plans',
+                    redeem: '/v1/geoweather/subscriptions/redeem',
                 },
                 'F-Port endpoints': {
-                    apps: '/api/v1/fport/apps'
+                    apps: '/v1/fport/apps'
                 },
                 'Wallora endpoints': {
-                    wallpapers: '/api/v1/wallora/wallpapers'
+                    wallpapers: '/v1/wallora/wallpapers'
                 }
             },
             'v2 endpoints' : {
                 'cross endpoints': {
-                    health: '/api/v2/health',
-                    login: '/api/v2/auth/login',
-                    logout: '/api/v2/auth/logout'
+                    health: '/v2/health',
+                    login: '/v2/auth/login',
+                    logout: '/v2/auth/logout'
                 },
                 'GeoWeather endpoints': {
-                    subscriptions: '/api/v2/geoweather/subscriptions',
-                    plans: '/api/v2/geoweather/subscriptions/plans',
-                    redeem: '/api/v2/geoweather/subscriptions/redeem',
+                    subscriptions: '/v2/geoweather/subscriptions',
+                    plans: '/v2/geoweather/subscriptions/plans',
+                    redeem: '/v2/geoweather/subscriptions/redeem',
                 },
                 'F-Port endpoints': {
-                    apps: '/api/v2/fport/apps'
+                    apps: '/v2/fport/apps'
                 },
                 'Wallora endpoints': {
-                    wallpapers: '/api/v2/wallora/wallpapers'
+                    wallpapers: '/v2/wallora/wallpapers'
                 },
                 'Sol Arcade endpoints': {
-                    info: '/api/v2/arcade',
-                    challenge: '/api/v2/arcade/challenge',
-                    login: '/api/v2/arcade/login',
-                    me: '/api/v2/arcade/me',
-                    setup: '/api/v2/arcade/setup'
+                    info: '/v2/arcade',
+                    challenge: '/v2/arcade/challenge',
+                    login: '/v2/arcade/login',
+                    me: '/v2/arcade/me',
+                    setup: '/v2/arcade/setup'
                 }
             }
         }
     });
 });
 
-app.get('/api/v2/health', (req, res) => {
+app.get('/v2/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
@@ -139,7 +139,7 @@ if (!v1Router) {
     console.error(`[api-v1] static=${describe(staticV1)} chunk=${describe(probe)}`);
     throw new Error('[api] konnte ./v1 nicht als Router laden.');
 }
-app.use('/api/v1', v1Router);
+app.use('/v1', v1Router);
 
 const staticV2 = require('./v2');
 let v2Router = asRouter(staticV2);
@@ -174,7 +174,7 @@ if (!v2Router) {
     console.error(`[api-v2] static=${describe(staticV2)} chunk=${describe(probe)}`);
     throw new Error('[api] konnte ./v2 nicht als Router laden.');
 }
-app.use('/api/v2', v1Router);
+app.use('/v2', v2Router);
 
 // Falls die Datei direkt gestartet wird, Server starten
 if (require.main === module) {
