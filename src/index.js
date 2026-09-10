@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API!',
         api: {
-            version: '2.2.0',
+            version: '2.3.0',
             'old v1 endpoints': {
                 'cross endpoints': {
                     health: '/v1/health',
@@ -68,6 +68,10 @@ app.get('/', (req, res) => {
                     login: '/v2/arcade/login',
                     me: '/v2/arcade/me',
                     setup: '/v2/arcade/setup'
+                },
+                'Luma Store endpoints': {
+                    apps: '/v2/lumastore/apps',
+                    appDetails: '/v2/lumastore/apps/:id'
                 }
             }
         }

@@ -7,6 +7,7 @@ const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
 const arcadeRoutes = require('./arcade');
+const lumaStore = require('./lumastore/store');
 
 // Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen:
 // { default: <router> }, { default: { default: <router> } }, Memo-Wrapper-
@@ -39,11 +40,12 @@ router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
 router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
+router.use('/lumastore', asRouter(lumaStore));
 
 router.get('/v2', (req, res) => {
     res.json({
         message: 'Welcome to the All API v2!',
-        version: '2.2.0',
+        version: '2.3.0',
         endpoints: {
             'cross endpoints': {
                 health: '/health',
@@ -67,6 +69,10 @@ router.get('/v2', (req, res) => {
                 login: '/v2/arcade/login',
                 me: '/v2/arcade/me',
                 setup: '/v2/arcade/setup'
+            },
+            'Luma Store endpoints': {
+                apps: '/lumastore/apps',
+                appDetails: '/lumastore/apps/:id'
             }
         }
     });
