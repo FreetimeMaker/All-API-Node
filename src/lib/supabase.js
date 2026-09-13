@@ -4,6 +4,15 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 
+// Luma Store uses its own Supabase project. Keep the generic Supabase client
+// untouched so other API areas continue using the existing project.
+const lumaStoreSupabaseUrl =
+    process.env.LUMASTORE_SUPABASE_URL ||
+    'https://ndlaevedujqxhygbyxfh.supabase.co';
+const lumaStoreSupabasePublishableKey =
+    process.env.LUMASTORE_SUPABASE_PUBLISHABLE_KEY ||
+    'sb_publishable_HlppI4ILiXV7DZkpyrDEhQ_ytb2vV6g';
+
 // Überprüfung der erforderlichen Umgebungsvariablen
 if (!supabaseUrl) {
     console.warn('WARNUNG: SUPABASE_URL ist nicht in der .env Datei definiert.');
@@ -12,10 +21,7 @@ if (!supabaseAnonKey) {
     console.warn('WARNUNG: SUPABASE_ANON_KEY ist nicht in der .env Datei definiert.');
 }
 
-function getSupabaseClient({ useServiceRole = false } = {}) {
-    const url = supabaseUrl;
-    const key = useServiceRole ? (supabaseServiceRoleKey || supabaseAnonKey) : supabaseAnonKey;
-
+function createSupabaseClient(url, key) {
     if (!url || !key) {
         return null;
     }
@@ -26,6 +32,17 @@ function getSupabaseClient({ useServiceRole = false } = {}) {
             autoRefreshToken: false
         }
     });
+}
+
+function getSupabaseClient({ useServiceRole = false } = {}) {
+    const url = supabaseUrl;
+    const key = useServiceRole ? (supabaseServiceRoleKey || supabaseAnonKey) : supabaseAnonKey;
+
+    return createSupabaseClient(url, key);
+}
+
+function getLumaStoreSupabaseClient() {
+    return createSupabaseClient(lumaStoreSupabaseUrl, lumaStoreSupabasePublishableKey);
 }
 
 async function getAuthenticatedUser(req, { requireConfig = true } = {}) {
@@ -54,5 +71,6 @@ async function getAuthenticatedUser(req, { requireConfig = true } = {}) {
 
 module.exports = {
     getSupabaseClient,
+    getLumaStoreSupabaseClient,
     getAuthenticatedUser
 };
