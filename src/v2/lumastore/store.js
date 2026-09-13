@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getSupabaseClient, getAuthenticatedUser } = require('../../lib/supabase');
+const { getLumaStoreSupabaseClient } = require('../../lib/supabase');
 
 /**
  * GET /api/v2/lumastore/apps
@@ -8,7 +8,7 @@ const { getSupabaseClient, getAuthenticatedUser } = require('../../lib/supabase'
  */
 router.get('/apps', async (req, res) => {
     try {
-        const client = getSupabaseClient();
+        const client = getLumaStoreSupabaseClient();
         if (!client) {
             return res.status(500).json({ error: 'Database connection failed' });
         }
@@ -20,7 +20,7 @@ router.get('/apps', async (req, res) => {
             .select(`
                 *,
                 category:store_categories(name),
-                platforms:store_app_platforms(platform, download_url)
+                platforms:store_app_platforms(platform, download_url, file_size_mb)
             `);
 
         if (category) {
@@ -35,7 +35,6 @@ router.get('/apps', async (req, res) => {
 
         if (error) throw error;
 
-        // Filter by platform in JS if needed (or use joining logic in SQL)
         let result = data;
         if (platform) {
             result = data.filter(app =>
@@ -55,7 +54,11 @@ router.get('/apps', async (req, res) => {
  */
 router.get('/apps/:id', async (req, res) => {
     try {
-        const client = getSupabaseClient();
+        const client = getLumaStoreSupabaseClient();
+        if (!client) {
+            return res.status(500).json({ error: 'Database connection failed' });
+        }
+
         const { id } = req.params;
 
         const { data, error } = await client
