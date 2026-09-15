@@ -2,9 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { getLumaStoreSupabaseClient } = require('../../lib/supabase');
 
+function normalizeApp(app, requestedPlatform = null) {
+    const platforms = Array.isArray(app.platforms) ? app.platforms : [];
+    const selectedPlatform = requestedPlatform
+        ? platforms.find(p => (p.platform || '').toLowerCase() === requestedPlatform.toLowerCase())
+        : platforms.find(p => (p.platform || '').toLowerCase() === 'android') || platforms[0] || null;
+
+    return {
+        ...app,
+        category: app.category?.name || null,
+        platform: selectedPlatform?.platform || null,
+        download_url: selectedPlatform?.download_url || null,
+        file_size_mb: selectedPlatform?.file_size_mb ?? null,
+        platforms
+    };
+}
+
 /**
- * GET /api/v2/lumastore/apps
- * List all apps with their platforms and categories
+ * GET /v2/lumastore/apps
+ * List Luma Store apps from the dedicated Luma Store Supabase project.
  */
 router.get('/apps', async (req, res) => {
     try {
@@ -32,13 +48,13 @@ router.get('/apps', async (req, res) => {
         }
 
         const { data, error } = await query;
-
         if (error) throw error;
 
-        let result = data;
+        let result = (data || []).map(app => normalizeApp(app, platform || null));
+
         if (platform) {
-            result = data.filter(app =>
-                app.platforms.some(p => p.platform.toLowerCase() === platform.toLowerCase())
+            result = result.filter(app =>
+                app.platforms.some(p => (p.platform || '').toLowerCase() === platform.toLowerCase())
             );
         }
 
@@ -49,8 +65,8 @@ router.get('/apps', async (req, res) => {
 });
 
 /**
- * GET /api/v2/lumastore/apps/:id
- * Get detailed information for a specific app
+ * GET /v2/lumastore/apps/:id
+ * Get detailed information for a specific app.
  */
 router.get('/apps/:id', async (req, res) => {
     try {
@@ -60,6 +76,7 @@ router.get('/apps/:id', async (req, res) => {
         }
 
         const { id } = req.params;
+        const { platform } = req.query;
 
         const { data, error } = await client
             .from('store_apps')
@@ -72,7 +89,7 @@ router.get('/apps/:id', async (req, res) => {
             .single();
 
         if (error) throw error;
-        res.json(data);
+        res.json(normalizeApp(data, platform || null));
     } catch (error) {
         res.status(404).json({ error: 'App not found', message: error.message });
     }
