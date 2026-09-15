@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const health = require('./health/health');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
@@ -8,11 +7,9 @@ const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
 const arcadeRoutes = require('./arcade');
 const lumaStore = require('./lumastore/store');
+const blogRoutes = require('./blog');
 
-// Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen:
-// { default: <router> }, { default: { default: <router> } }, Memo-Wrapper-
-// Funktion oder direkt die Funktion. asRouter entpackt rekursiv bis zum echten
-// express.Router (max. 5 Ebenen, um zyklische Strukturen auszuschließen).
+// Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen.
 const asRouter = (m) => {
     for (let d = 0; d < 5 && m != null; d++) {
         if (typeof m === 'function') {
@@ -41,6 +38,7 @@ router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
 router.use('/lumastore', asRouter(lumaStore));
+router.use('/blog', asRouter(blogRoutes));
 
 router.get('/v2', (req, res) => {
     res.json({
@@ -55,14 +53,10 @@ router.get('/v2', (req, res) => {
             'GeoWeather endpoints': {
                 subscriptions: '/geoweather/subscriptions',
                 plans: '/geoweather/subscriptions/plans',
-                redeem: '/geoweather/subscriptions/redeem',
+                redeem: '/geoweather/subscriptions/redeem'
             },
-            'F-Port endpoints': {
-                apps: '/fport/apps'
-            },
-            'Wallora endpoints': {
-                wallpapers: '/wallora/wallpapers'
-            },
+            'F-Port endpoints': { apps: '/fport/apps' },
+            'Wallora endpoints': { wallpapers: '/wallora/wallpapers' },
             'Sol Arcade endpoints': {
                 info: '/v2/arcade',
                 challenge: '/v2/arcade/challenge',
@@ -73,6 +67,11 @@ router.get('/v2', (req, res) => {
             'Luma Store endpoints': {
                 apps: '/lumastore/apps',
                 appDetails: '/lumastore/apps/:id'
+            },
+            'MD-Blog endpoints': {
+                posts: '/blog/posts',
+                postDetails: '/blog/posts/:slug',
+                categories: '/blog/categories'
             }
         }
     });
