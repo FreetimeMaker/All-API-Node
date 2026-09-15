@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API!',
         api: {
-            version: '2.3.0',
+            version: '2.5.0',
             'old v1 endpoints': {
                 'cross endpoints': {
                     health: '/v1/health',
@@ -72,6 +72,11 @@ app.get('/', (req, res) => {
                 'Luma Store endpoints': {
                     apps: '/v2/lumastore/apps',
                     appDetails: '/v2/lumastore/apps/:id'
+                },
+                'MD-Blog endpoints': {
+                    posts: '/blog/posts',
+                    postDetails: '/blog/posts/:slug',
+                    categories: '/blog/categories'
                 }
             }
         }
