@@ -19,7 +19,8 @@
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "node-appwrite": "^21.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
