@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to the All API!',
         api: {
-            version: '2.6.0',
+            version: '2.6.1',
             'old v1 endpoints': {
                 'cross endpoints': {
                     health: '/v1/health',
@@ -37,9 +37,6 @@ app.get('/', (req, res) => {
                     subscriptions: '/v1/geoweather/subscriptions',
                     plans: '/v1/geoweather/subscriptions/plans',
                     redeem: '/v1/geoweather/subscriptions/redeem',
-                },
-                'F-Port endpoints': {
-                    apps: '/v1/fport/apps'
                 },
                 'Wallora endpoints': {
                     wallpapers: '/v1/wallora/wallpapers'
@@ -55,9 +52,6 @@ app.get('/', (req, res) => {
                     subscriptions: '/v2/geoweather/subscriptions',
                     plans: '/v2/geoweather/subscriptions/plans',
                     redeem: '/v2/geoweather/subscriptions/redeem',
-                },
-                'F-Port endpoints': {
-                    apps: '/v2/fport/apps'
                 },
                 'Wallora endpoints': {
                     wallpapers: '/v2/wallora/wallpapers'

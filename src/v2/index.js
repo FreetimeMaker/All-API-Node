@@ -3,7 +3,6 @@ const router = express.Router();
 const health = require('./health/health');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
-const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
 const arcadeRoutes = require('./arcade');
 const lumaStore = require('./lumastore/store');
@@ -34,7 +33,6 @@ const asRouter = (m) => {
 router.use('/health', asRouter(health));
 router.use('/auth', asRouter(supabaseRoutes));
 router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
-router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
 router.use('/lumastore', asRouter(lumaStore));
@@ -43,7 +41,7 @@ router.use('/blog', asRouter(blogRoutes));
 router.get('/v2', (req, res) => {
     res.json({
         message: 'Welcome to the All API v2!',
-        version: '2.6.0',
+        version: '2.6.1',
         endpoints: {
             'cross endpoints': {
                 health: '/health',
@@ -55,8 +53,9 @@ router.get('/v2', (req, res) => {
                 plans: '/geoweather/subscriptions/plans',
                 redeem: '/geoweather/subscriptions/redeem'
             },
-            'F-Port endpoints': { apps: '/fport/apps' },
-            'Wallora endpoints': { wallpapers: '/wallora/wallpapers' },
+            'Wallora endpoints': {
+                wallpapers: '/wallora/wallpapers'
+            },
             'Sol Arcade endpoints': {
                 info: '/v2/arcade',
                 challenge: '/v2/arcade/challenge',

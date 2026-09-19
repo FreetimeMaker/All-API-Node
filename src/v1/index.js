@@ -4,7 +4,6 @@ const axios = require('axios');
 const health = require('./health/health');
 const supabaseRoutes = require('./auth/supabase');
 const geoWeatherSubscriptions = require('./geoweather/subscriptions');
-const fportApps = require('./fport/apps');
 const walloraWallpapers = require('./wallora/wallpapers');
 
 // Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen:
@@ -35,7 +34,6 @@ const asRouter = (m) => {
 router.use('/health', asRouter(health));
 router.use('/auth', asRouter(supabaseRoutes));
 router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
-router.use('/fport/apps', asRouter(fportApps));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 
 router.get('/v1', (req, res) => {
@@ -53,9 +51,6 @@ router.get('/v1', (req, res) => {
                 subscriptions: '/geoweather/subscriptions',
                 plans: '/geoweather/subscriptions/plans',
                 redeem: '/geoweather/subscriptions/redeem',
-            },
-            'F-Port endpoints': {
-                apps: '/fport/apps'
             },
             'Wallora endpoints': {
                 wallpapers: '/wallora/wallpapers'
