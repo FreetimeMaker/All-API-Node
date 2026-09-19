@@ -28,7 +28,7 @@ const Subscription = {
         },
         ultrimium: {
             maxLocations: 20,
-            forecastDays: 14,
+            forecastDays: 16,
             notifications: true,
         },
     },
