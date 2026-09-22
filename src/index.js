@@ -65,7 +65,11 @@ app.get('/', (req, res) => {
                 },
                 'Luma Store endpoints': {
                     apps: '/v2/lumastore/apps',
-                    appDetails: '/v2/lumastore/apps/:id'
+                    appDetails: '/v2/lumastore/apps/:id',
+                    ratings: '/v2/lumastore/apps/:id/ratings',
+                    myRating: '/v2/lumastore/apps/:id/rating/me',
+                    setMyRating: 'PUT /v2/lumastore/apps/:id/rating/me',
+                    deleteMyRating: 'DELETE /v2/lumastore/apps/:id/rating/me'
                 },
                 'MD-Blog endpoints': {
                     posts: '/blog/posts',
