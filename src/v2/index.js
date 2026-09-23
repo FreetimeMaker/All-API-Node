@@ -39,7 +39,7 @@ router.use('/blog', asRouter(blogRoutes));
 router.get('/v2', (req, res) => {
     res.json({
         message: 'Welcome to the All API v2!',
-        version: '2.7.0',
+        version: '2.8.0',
         endpoints: {
             'cross endpoints': {
                 health: '/health',
