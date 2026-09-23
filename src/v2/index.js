@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const health = require('./health/health');
 const supabaseRoutes = require('./auth/supabase');
-const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 const walloraWallpapers = require('./wallora/wallpapers');
 const arcadeRoutes = require('./arcade');
 const lumaStore = require('./lumastore/store');
@@ -32,7 +31,6 @@ const asRouter = (m) => {
 
 router.use('/health', asRouter(health));
 router.use('/auth', asRouter(supabaseRoutes));
-router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
 router.use('/lumastore', asRouter(lumaStore));
@@ -47,11 +45,6 @@ router.get('/v2', (req, res) => {
                 health: '/health',
                 login: '/auth/login',
                 logout: '/auth/logout'
-            },
-            'GeoWeather endpoints': {
-                subscriptions: '/geoweather/subscriptions',
-                plans: '/geoweather/subscriptions/plans',
-                redeem: '/geoweather/subscriptions/redeem'
             },
             'Wallora endpoints': {
                 wallpapers: '/wallora/wallpapers'
