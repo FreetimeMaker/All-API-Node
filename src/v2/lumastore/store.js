@@ -74,6 +74,7 @@ router.get('/apps', async (req, res) => {
             category:store_categories(name),
             platforms:store_app_platforms(*)
         `);
+        query = query.is('archived_at', null);
         if (category) query = query.eq('category_id', category);
         if (search) query = query.ilike('name', `%${search}%`);
 
