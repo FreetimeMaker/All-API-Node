@@ -85,5 +85,6 @@ async function getAuthenticatedUser(req, { requireConfig = true } = {}) {
 module.exports = {
     getSupabaseClient,
     getLumaStoreSupabaseClient,
+    getLumaStoreAuthenticatedUser,
     getAuthenticatedUser
 };
