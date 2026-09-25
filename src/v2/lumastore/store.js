@@ -122,19 +122,6 @@ router.get('/apps/:id', async (req, res) => {
 });
 
 
-function requireGoogleIdentity(user) {
-    const providers = new Set([
-        user?.app_metadata?.provider,
-        ...(Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : []),
-        ...(Array.isArray(user?.identities) ? user.identities.map(identity => identity?.provider) : [])
-    ].filter(Boolean));
-    if (!providers.has('google')) {
-        const error = new Error('Google sign-in is required to rate apps');
-        error.status = 403;
-        throw error;
-    }
-}
-
 async function resolveApp(client, identifier) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier);
     const { data, error } = await client.from('store_apps').select('id,developer_id').eq(isUuid ? 'id' : 'package_name', identifier).single();
@@ -158,7 +145,6 @@ router.get('/apps/:id/ratings', async (req, res) => {
 router.get('/apps/:id/rating/me', async (req, res) => {
     try {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
-        requireGoogleIdentity(user);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.id);
         const { data, error } = await client.from('store_app_ratings').select('rating,updated_at').eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
@@ -174,7 +160,6 @@ router.put('/apps/:id/rating/me', express.json(), async (req, res) => {
         const rating = Number(req.body?.rating);
         if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Invalid rating', message: 'rating must be an integer from 1 to 5' });
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
-        requireGoogleIdentity(user);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.id);
         if (app.developer_id === user.id) return res.status(403).json({ error: 'Developers cannot rate their own app' });
@@ -190,7 +175,6 @@ router.put('/apps/:id/rating/me', express.json(), async (req, res) => {
 router.delete('/apps/:id/rating/me', async (req, res) => {
     try {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
-        requireGoogleIdentity(user);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.id);
         const { error } = await client.from('store_app_ratings').delete().eq('app_id', app.id).eq('user_id', user.id);
