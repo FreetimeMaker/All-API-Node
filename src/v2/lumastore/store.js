@@ -44,7 +44,9 @@ async function addDownloadCounts(client, apps) {
     const ids = rows.map(app => app?.id).filter(Boolean);
     if (!ids.length) return rows;
     const { data, error } = await client.from('luma_download_events').select('app_id').in('app_id', ids);
-    if (error) throw error;
+    // Download analytics are optional for public store responses. RLS intentionally
+    // restricts raw events, so a missing permission must never hide the app catalog.
+    if (error) return rows.map(app => ({ ...app, download_count: 0 }));
     const counts = (data || []).reduce((map, event) => {
         map[event.app_id] = (map[event.app_id] || 0) + 1;
         return map;
