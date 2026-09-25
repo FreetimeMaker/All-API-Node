@@ -41,8 +41,11 @@ function getSupabaseClient({ useServiceRole = false } = {}) {
     return createSupabaseClient(url, key);
 }
 
-function getLumaStoreSupabaseClient() {
-    return createSupabaseClient(lumaStoreSupabaseUrl, lumaStoreSupabasePublishableKey);
+function getLumaStoreSupabaseClient(accessToken = null) {
+    return createClient(lumaStoreSupabaseUrl, lumaStoreSupabasePublishableKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined
+    });
 }
 
 async function getLumaStoreAuthenticatedUser(req) {
