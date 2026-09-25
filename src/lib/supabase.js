@@ -45,6 +45,19 @@ function getLumaStoreSupabaseClient() {
     return createSupabaseClient(lumaStoreSupabaseUrl, lumaStoreSupabasePublishableKey);
 }
 
+async function getLumaStoreAuthenticatedUser(req) {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    if (!token) throw new Error('Authorization header with Bearer token is required');
+
+    const client = getLumaStoreSupabaseClient();
+    if (!client) throw new Error('Luma Store Supabase credentials are not configured');
+
+    const { data, error } = await client.auth.getUser(token);
+    if (error || !data?.user) throw error || new Error('Unable to validate Luma Store user token');
+    return { user: data.user, token };
+}
+
 async function getAuthenticatedUser(req, { requireConfig = true } = {}) {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
