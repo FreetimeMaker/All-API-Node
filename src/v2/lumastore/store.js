@@ -182,7 +182,8 @@ router.put('/apps/:id/rating/me', express.json(), async (req, res) => {
         if (error) throw error;
         res.json({ app_id: app.id, ...data });
     } catch (error) {
-        res.status(error.status || 401).json({ error: error.status === 403 ? 'Google sign-in required' : 'Unable to save rating', message: error.message });
+        const status = error.status || 401;
+        res.status(status).json({ error: status === 403 ? error.message : 'Unable to save rating', message: error.message });
     }
 });
 
