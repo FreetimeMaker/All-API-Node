@@ -39,6 +39,19 @@ function validateLinuxPackageFormat(value) {
     return LINUX_PACKAGE_FORMATS.find(format => format.toLowerCase() === String(value).toLowerCase()) || null;
 }
 
+async function addDownloadCounts(client, apps) {
+    const rows = Array.isArray(apps) ? apps : [apps];
+    const ids = rows.map(app => app?.id).filter(Boolean);
+    if (!ids.length) return rows;
+    const { data, error } = await client.from('luma_download_events').select('app_id').in('app_id', ids);
+    if (error) throw error;
+    const counts = (data || []).reduce((map, event) => {
+        map[event.app_id] = (map[event.app_id] || 0) + 1;
+        return map;
+    }, {});
+    return rows.map(app => ({ ...app, download_count: counts[app.id] || 0 }));
+}
+
 router.get('/apps', async (req, res) => {
     try {
         const client = getLumaStoreSupabaseClient();
@@ -65,7 +78,8 @@ router.get('/apps', async (req, res) => {
 
         const { data, error } = await query;
         if (error) throw error;
-        let result = (data || []).map(app => normalizeApp(app, platform || null, packageFormatFilter));
+        const appsWithDownloads = await addDownloadCounts(client, data || []);
+        let result = appsWithDownloads.map(app => normalizeApp(app, platform || null, packageFormatFilter));
         if (platform) {
             result = result.filter(app => app.platforms.some(p => {
                 if ((p.platform || '').toLowerCase() !== String(platform).toLowerCase()) return false;
@@ -98,7 +112,8 @@ router.get('/apps/:id', async (req, res) => {
             platforms:store_app_platforms(*)
         `).eq('id', id).single();
         if (error) throw error;
-        res.json(normalizeApp(data, platform || null, packageFormatFilter));
+        const [appWithDownloads] = await addDownloadCounts(client, data);
+        res.json(normalizeApp(appWithDownloads, platform || null, packageFormatFilter));
     } catch (error) {
         res.status(404).json({ error: 'App not found', message: error.message });
     }
