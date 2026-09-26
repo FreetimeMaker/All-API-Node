@@ -142,6 +142,61 @@ router.get('/apps/:id/ratings', async (req, res) => {
     }
 });
 
+router.get('/favorites/me', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const { data, error } = await client
+            .from('store_saved_apps')
+            .select('app_id,created_at,app:store_apps(id,package_name,name,icon_url)')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json(data || []);
+    } catch (error) {
+        res.status(error.status || 401).json({ error: 'Authentication required', message: error.message });
+    }
+});
+
+router.get('/apps/:id/favorite/me', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const app = await resolveApp(client, req.params.id);
+        const { data, error } = await client.from('store_saved_apps').select('app_id').eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
+        res.json({ app_id: app.id, favorite: Boolean(data) });
+    } catch (error) {
+        res.status(error.status || 401).json({ error: 'Authentication required', message: error.message });
+    }
+});
+
+router.put('/apps/:id/favorite/me', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const app = await resolveApp(client, req.params.id);
+        const { data, error } = await client.from('store_saved_apps').upsert({ app_id: app.id, user_id: user.id }, { onConflict: 'app_id,user_id' }).select('app_id,created_at').single();
+        if (error) throw error;
+        res.json({ ...data, favorite: true });
+    } catch (error) {
+        res.status(error.status || 401).json({ error: 'Unable to save favorite', message: error.message });
+    }
+});
+
+router.delete('/apps/:id/favorite/me', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const app = await resolveApp(client, req.params.id);
+        const { error } = await client.from('store_saved_apps').delete().eq('app_id', app.id).eq('user_id', user.id);
+        if (error) throw error;
+        res.status(204).end();
+    } catch (error) {
+        res.status(error.status || 401).json({ error: 'Unable to remove favorite', message: error.message });
+    }
+});
+
 router.get('/ratings/me', async (req, res) => {
     try {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
