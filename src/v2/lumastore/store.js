@@ -142,6 +142,31 @@ router.get('/apps/:id/ratings', async (req, res) => {
     }
 });
 
+router.get('/apps/:id/reviews', async (req, res) => {
+    try {
+        const client = getLumaStoreSupabaseClient();
+        const app = await resolveApp(client, req.params.id);
+        const sort = String(req.query.sort || 'newest').toLowerCase();
+        const { data, error } = await client
+            .from('store_app_ratings')
+            .select('rating,review_text,updated_at')
+            .eq('app_id', app.id)
+            .not('review_text', 'is', null)
+            .order(sort === 'highest' ? 'rating' : 'updated_at', { ascending: sort === 'oldest' })
+            .limit(100);
+        if (error) throw error;
+        res.json((data || [])
+            .filter(row => typeof row.review_text === 'string' && row.review_text.trim())
+            .map(row => ({
+                rating: Number(row.rating),
+                review_text: row.review_text.trim(),
+                updated_at: row.updated_at
+            })));
+    } catch (error) {
+        res.status(404).json({ error: 'Reviews not found', message: error.message });
+    }
+});
+
 router.get('/favorites/me', async (req, res) => {
     try {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
