@@ -142,14 +142,30 @@ router.get('/apps/:id/ratings', async (req, res) => {
     }
 });
 
+router.get('/ratings/me', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const { data, error } = await client
+            .from('store_app_ratings')
+            .select('app_id,rating,review_text,updated_at,app:store_apps(id,package_name,name,icon_url)')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false });
+        if (error) throw error;
+        res.json(data || []);
+    } catch (error) {
+        res.status(error.status || 401).json({ error: 'Authentication required', message: error.message });
+    }
+});
+
 router.get('/apps/:id/rating/me', async (req, res) => {
     try {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.id);
-        const { data, error } = await client.from('store_app_ratings').select('rating,updated_at').eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
+        const { data, error } = await client.from('store_app_ratings').select('rating,review_text,updated_at').eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
         if (error) throw error;
-        res.json({ app_id: app.id, rating: data?.rating ?? null, updated_at: data?.updated_at ?? null });
+        res.json({ app_id: app.id, rating: data?.rating ?? null, review_text: data?.review_text ?? null, updated_at: data?.updated_at ?? null });
     } catch (error) {
         res.status(error.status || 401).json({ error: error.status === 403 ? 'Google sign-in required' : 'Authentication required', message: error.message });
     }
@@ -159,11 +175,13 @@ router.put('/apps/:id/rating/me', express.json(), async (req, res) => {
     try {
         const rating = Number(req.body?.rating);
         if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Invalid rating', message: 'rating must be an integer from 1 to 5' });
+        const reviewText = typeof req.body?.review_text === 'string' ? req.body.review_text.trim() : '';
+        if (reviewText.length > 2000) return res.status(400).json({ error: 'Review too long', message: 'review_text must be 2000 characters or fewer' });
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.id);
         if (app.developer_id === user.id) return res.status(403).json({ error: 'Developers cannot rate their own app' });
-        const { data, error } = await client.from('store_app_ratings').upsert({ app_id: app.id, user_id: user.id, rating, updated_at: new Date().toISOString() }, { onConflict: 'app_id,user_id' }).select('rating,updated_at').single();
+        const { data, error } = await client.from('store_app_ratings').upsert({ app_id: app.id, user_id: user.id, rating, review_text: reviewText || null, updated_at: new Date().toISOString() }, { onConflict: 'app_id,user_id' }).select('rating,review_text,updated_at').single();
         if (error) throw error;
         res.json({ app_id: app.id, ...data });
     } catch (error) {
