@@ -129,6 +129,41 @@ async function resolveApp(client, identifier) {
     return data;
 }
 
+router.get('/developers/:id', async (req, res) => {
+    try {
+        const client = getLumaStoreSupabaseClient();
+        if (!client) return res.status(500).json({ error: 'Database connection failed' });
+        const { id } = req.params;
+        const { data: profile, error: profileError } = await client
+            .from('luma_developer_profiles')
+            .select('developer_id,display_name,bio,website_url,github_url,gitlab_url,avatar_url,verified')
+            .eq('developer_id', id)
+            .maybeSingle();
+        if (profileError) throw profileError;
+        const { data: apps, error: appsError } = await client
+            .from('store_apps')
+            .select('id,package_name,name,icon_url,short_description,developer_name,version,updated_at')
+            .eq('developer_id', id)
+            .is('archived_at', null)
+            .order('updated_at', { ascending: false });
+        if (appsError) throw appsError;
+        if (!profile && !(apps || []).length) return res.status(404).json({ error: 'Developer not found' });
+        res.json({
+            developer_id: id,
+            display_name: profile?.display_name || apps?.[0]?.developer_name || 'Developer',
+            bio: profile?.bio || null,
+            website_url: profile?.website_url || null,
+            github_url: profile?.github_url || null,
+            gitlab_url: profile?.gitlab_url || null,
+            avatar_url: profile?.avatar_url || null,
+            verified: Boolean(profile?.verified),
+            apps: apps || []
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch developer', message: error.message });
+    }
+});
+
 router.get('/apps/:id/ratings', async (req, res) => {
     try {
         const client = getLumaStoreSupabaseClient();
