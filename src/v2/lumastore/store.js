@@ -148,6 +148,12 @@ router.get('/developers/:id', async (req, res) => {
             .order('updated_at', { ascending: false });
         if (appsError) throw appsError;
         if (!profile && !(apps || []).length) return res.status(404).json({ error: 'Developer not found' });
+        const { data: funding, error: fundingError } = await client
+            .from('luma_developer_funding')
+            .select('donate_url,liberapay,opencollective,bitcoin,litecoin,crypto_addresses')
+            .eq('developer_id', id)
+            .maybeSingle();
+        if (fundingError) throw fundingError;
         res.json({
             developer_id: id,
             display_name: profile?.display_name || apps?.[0]?.developer_name || 'Developer',
@@ -157,6 +163,16 @@ router.get('/developers/:id', async (req, res) => {
             gitlab_url: profile?.gitlab_url || null,
             avatar_url: profile?.avatar_url || null,
             verified: Boolean(profile?.verified),
+            funding: funding ? {
+                donate_url: funding.donate_url || null,
+                liberapay: funding.liberapay || null,
+                opencollective: funding.opencollective || null,
+                crypto_addresses: {
+                    ...(funding.crypto_addresses || {}),
+                    ...(funding.bitcoin && !funding.crypto_addresses?.['bitcoin::Bitcoin'] ? { 'bitcoin::Bitcoin': funding.bitcoin } : {}),
+                    ...(funding.litecoin && !funding.crypto_addresses?.['litecoin::Litecoin'] ? { 'litecoin::Litecoin': funding.litecoin } : {})
+                }
+            } : null,
             apps: apps || []
         });
     } catch (error) {
