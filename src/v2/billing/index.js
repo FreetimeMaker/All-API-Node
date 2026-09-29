@@ -5,8 +5,6 @@ const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('.
 const { getConnection } = require('../../lib/arcade');
 
 const PAYMENT_TTL_MS = 15 * 60 * 1000;
-const LUMA_FEE_BPS = Math.max(0, Math.min(10000, Number(process.env.LUMA_BILLING_FEE_BPS || 300)));
-const LUMA_FEE_RECIPIENT = process.env.LUMA_BILLING_FEE_SOLANA_RECIPIENT || '';
 
 async function resolveApp(client, packageName) {
     const { data, error } = await client.from('store_apps')
@@ -70,25 +68,18 @@ async function resolveDeveloperSolanaRecipient(client, developerId) {
     return addresses['solana::Solana'] || addresses.solana || null;
 }
 
-function splitPayment(total) {
-    const fee = Math.floor(Number(total) * LUMA_FEE_BPS / 10000);
-    return { developerAmount: Number(total) - fee, lumaFeeAmount: fee };
-}
-
-async function verifySolTransfers(signature, transfers) {
+async function verifySolTransfer(signature, recipient, lamports) {
     const parsed = await getConnection().getParsedTransaction(signature, {
         commitment: 'confirmed',
         maxSupportedTransactionVersion: 0
     });
     if (!parsed || parsed.meta?.err) return false;
-    const required = new Map(transfers.filter(t => t.amount > 0).map(t => [t.recipient + ':' + t.amount, false]));
     for (const ix of parsed.transaction.message.instructions || []) {
         if (ix.program !== 'system' || ix.parsed?.type !== 'transfer') continue;
         const info = ix.parsed?.info || {};
-        const key = String(info.destination) + ':' + Number(info.lamports);
-        if (required.has(key)) required.set(key, true);
+        if (info.destination === recipient && Number(info.lamports) === Number(lamports)) return true;
     }
-    return [...required.values()].every(Boolean);
+    return false;
 }
 
 function fail(res, error, fallback = 'BILLING_ERROR') {
@@ -158,21 +149,13 @@ router.get('/apps/:packageName/purchases/:transactionId/payment', async (req, re
         if (!row) return res.status(404).json({ code: 'PURCHASE_NOT_FOUND', message: 'Purchase not found' });
         const recipient = await resolveDeveloperSolanaRecipient(client, app.developer_id);
         if (!recipient) return res.status(409).json({ code: 'DEVELOPER_PAYMENT_NOT_CONFIGURED', message: 'Developer has no Solana funding address configured' });
-        if (LUMA_FEE_BPS > 0 && !LUMA_FEE_RECIPIENT) return res.status(503).json({ code: 'LUMA_FEE_NOT_CONFIGURED', message: 'Luma Billing fee recipient is not configured' });
-        const { developerAmount, lumaFeeAmount } = splitPayment(row.amount_minor);
         const expires = Date.parse(row.created_at) + PAYMENT_TTL_MS;
         res.json({
             transactionId: row.id,
             chain: 'SOLANA',
             asset: 'SOL',
             recipient,
-            amountAtomic: developerAmount,
-            transfers: [
-                { role: 'DEVELOPER', recipient, amountAtomic: developerAmount },
-                ...(lumaFeeAmount > 0 ? [{ role: 'LUMA_FEE', recipient: LUMA_FEE_RECIPIENT, amountAtomic: lumaFeeAmount }] : [])
-            ],
-            totalAmountAtomic: Number(row.amount_minor),
-            lumaFeeBasisPoints: LUMA_FEE_BPS,
+            amountAtomic: Number(row.amount_minor),
             reference: row.id,
             expiresAtEpochMillis: expires
         });
@@ -198,12 +181,7 @@ router.post('/apps/:packageName/purchases/:transactionId/verify', async (req, re
         }
         const recipient = await resolveDeveloperSolanaRecipient(client, app.developer_id);
         if (!recipient) return res.status(409).json({ code: 'DEVELOPER_PAYMENT_NOT_CONFIGURED', message: 'Developer has no Solana funding address configured' });
-        if (LUMA_FEE_BPS > 0 && !LUMA_FEE_RECIPIENT) return res.status(503).json({ code: 'LUMA_FEE_NOT_CONFIGURED', message: 'Luma Billing fee recipient is not configured' });
-        const { developerAmount, lumaFeeAmount } = splitPayment(row.amount_minor);
-        const valid = await verifySolTransfers(signature, [
-            { recipient, amount: developerAmount },
-            ...(lumaFeeAmount > 0 ? [{ recipient: LUMA_FEE_RECIPIENT, amount: lumaFeeAmount }] : [])
-        ]);
+        const valid = await verifySolTransfer(signature, recipient, row.amount_minor);
         if (!valid) return res.json({ status: 'VERIFYING', purchase: null });
 
         const purchasedAt = new Date().toISOString();
