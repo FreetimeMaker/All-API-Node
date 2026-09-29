@@ -93,9 +93,14 @@ async function verifySolTransfer(signature, recipient, lamports) {
 }
 
 async function verifyUtxoTransfer(chain, txid, recipient, amountAtomic) {
-    const base = chain === 'BITCOIN'
-        ? (process.env.BITCOIN_EXPLORER_API || 'https://blockstream.info/api')
-        : (process.env.LITECOIN_EXPLORER_API || 'https://litecoinspace.org/api');
+    const defaults = {
+        BITCOIN: process.env.BITCOIN_EXPLORER_API || 'https://blockstream.info/api',
+        LITECOIN: process.env.LITECOIN_EXPLORER_API || 'https://litecoinspace.org/api',
+        DOGECOIN: process.env.DOGECOIN_EXPLORER_API,
+        BITCOIN_CASH: process.env.BITCOIN_CASH_EXPLORER_API
+    };
+    const base = defaults[chain];
+    if (!base) throw Object.assign(new Error(chain + ' explorer API is not configured'), { status: 503, code: 'CHAIN_VERIFIER_NOT_CONFIGURED' });
     const { data: tx } = await axios.get(base + '/tx/' + encodeURIComponent(txid), { timeout: 15000 });
     if (!tx?.status?.confirmed) return false;
     return (tx.vout || []).some(out => out.scriptpubkey_address === recipient && Number(out.value) === Number(amountAtomic));
@@ -149,6 +154,39 @@ async function verifyMoneroTransfer(txid, recipient, amountAtomic, proof) {
     return Boolean(r?.good) && Number(r?.confirmations || 0) > 0 && BigInt(String(r?.received || 0)) === BigInt(String(amountAtomic));
 }
 
+async function evmRpc(network, method, params) {
+    const envKey = 'EVM_' + network.toUpperCase().replace(/[^A-Z0-9]+/g, '_') + '_RPC_URL';
+    const rpc = process.env[envKey];
+    if (!rpc) throw Object.assign(new Error(envKey + ' is required'), { status: 503, code: 'CHAIN_VERIFIER_NOT_CONFIGURED' });
+    const { data } = await axios.post(rpc, { jsonrpc: '2.0', id: 1, method, params }, { timeout: 15000 });
+    if (data?.error) throw new Error(data.error.message || 'EVM RPC error');
+    return data?.result;
+}
+function hexBigInt(v) { return BigInt(v || '0x0'); }
+async function verifyEvmNative(network, txid, recipient, amountAtomic) {
+    const tx = await evmRpc(network, 'eth_getTransactionByHash', [txid]);
+    if (!tx || String(tx.to || '').toLowerCase() !== recipient.toLowerCase() || hexBigInt(tx.value) !== BigInt(String(amountAtomic))) return false;
+    const receipt = await evmRpc(network, 'eth_getTransactionReceipt', [txid]);
+    return receipt?.status === '0x1' && Boolean(receipt.blockNumber);
+}
+async function verifyEvmToken(network, txid, recipient, amountAtomic, contract) {
+    if (!contract) throw Object.assign(new Error('Token contract is not configured'), { status: 503, code: 'TOKEN_NOT_CONFIGURED' });
+    const receipt = await evmRpc(network, 'eth_getTransactionReceipt', [txid]);
+    if (receipt?.status !== '0x1' || !receipt.blockNumber) return false;
+    const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    const recipientTopic = '0x' + recipient.toLowerCase().replace(/^0x/,'').padStart(64,'0');
+    return (receipt.logs || []).some(log => String(log.address).toLowerCase() === contract.toLowerCase() &&
+        log.topics?.[0]?.toLowerCase() === transferTopic && log.topics?.[2]?.toLowerCase() === recipientTopic &&
+        hexBigInt(log.data) === BigInt(String(amountAtomic)));
+}
+async function verifyConfiguredRest(chain, txid, recipient, amountAtomic) {
+    const envKey = chain + '_VERIFIER_API';
+    const base = process.env[envKey];
+    if (!base) throw Object.assign(new Error(envKey + ' is required'), { status: 503, code: 'CHAIN_VERIFIER_NOT_CONFIGURED' });
+    const { data } = await axios.get(base, { params: { txid, recipient, amountAtomic: String(amountAtomic) }, timeout: 15000 });
+    return data?.verified === true;
+}
+
 async function verifySettlementTransfer(statement, txid, proof = null) {
     const chain = String(statement.settlement_chain || '').toUpperCase();
     const asset = String(statement.settlement_asset || '').toUpperCase();
@@ -157,8 +195,20 @@ async function verifySettlementTransfer(statement, txid, proof = null) {
     if (chain === 'SOLANA' && asset === 'SOL') return verifySolTransfer(txid, recipient, amount);
     if (chain === 'BITCOIN' && asset === 'BTC') return verifyUtxoTransfer('BITCOIN', txid, recipient, amount);
     if (chain === 'LITECOIN' && asset === 'LTC') return verifyUtxoTransfer('LITECOIN', txid, recipient, amount);
+    if (chain === 'DOGECOIN' && asset === 'DOGE') return verifyUtxoTransfer('DOGECOIN', txid, recipient, amount);
+    if ((chain === 'BITCOIN CASH' || chain === 'BITCOIN_CASH') && asset === 'BCH') return verifyUtxoTransfer('BITCOIN_CASH', txid, recipient, amount);
     if (chain === 'STELLAR' && asset === 'XLM') return verifyStellarTransfer(txid, recipient, amount);
     if (chain === 'MONERO' && asset === 'XMR') return verifyMoneroTransfer(txid, recipient, amount, proof);
+    const evmNetworks = new Set(['ETHEREUM','ETHEREUM (ERC-20)','BNB SMART CHAIN (BEP-20)','POLYGON','AVALANCHE C-CHAIN','ARBITRUM','OPTIMISM','BASE','SHIBARIUM']);
+    if (evmNetworks.has(chain)) {
+        const nativeByNetwork = { ETHEREUM:'ETH', 'BNB SMART CHAIN (BEP-20)':'BNB', POLYGON:'POL', 'AVALANCHE C-CHAIN':'AVAX' };
+        if (nativeByNetwork[chain] === asset) return verifyEvmNative(chain, txid, recipient, amount);
+        const contractKey = 'TOKEN_' + asset + '_' + chain.replace(/[^A-Z0-9]+/g,'_') + '_CONTRACT';
+        return verifyEvmToken(chain, txid, recipient, amount, process.env[contractKey]);
+    }
+    if (['TRON','CARDANO','POLKADOT','AVALANCHE P-CHAIN','TON'].includes(chain)) {
+        return verifyConfiguredRest(chain.replace(/[^A-Z0-9]+/g,'_'), txid, recipient, amount);
+    }
     if (chain === 'SOLANA' && (asset === 'USDC' || asset === 'USDT')) {
         const mint = asset === 'USDC'
             ? (process.env.SOLANA_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
