@@ -6,6 +6,7 @@ const walloraWallpapers = require('./wallora/wallpapers');
 const arcadeRoutes = require('./arcade');
 const lumaStore = require('./lumastore/store');
 const blogRoutes = require('./blog');
+const billingRoutes = require('./billing');
 
 // Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen.
 const asRouter = (m) => {
@@ -35,6 +36,7 @@ router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 router.use('/arcade', asRouter(arcadeRoutes));
 router.use('/lumastore', asRouter(lumaStore));
 router.use('/blog', asRouter(blogRoutes));
+router.use('/billing', asRouter(billingRoutes));
 
 router.get('/v2', (req, res) => {
     res.json({
@@ -55,6 +57,13 @@ router.get('/v2', (req, res) => {
                 login: '/v2/arcade/login',
                 me: '/v2/arcade/me',
                 setup: '/v2/arcade/setup'
+            },
+            'Luma Billing endpoints': {
+                products: 'GET /v2/billing/apps/:packageName/products',
+                createPurchase: 'POST /v2/billing/apps/:packageName/purchases',
+                purchases: 'GET /v2/billing/apps/:packageName/purchases',
+                consume: 'POST /v2/billing/apps/:packageName/purchases/:transactionId/consume',
+                restore: 'POST /v2/billing/apps/:packageName/purchases/restore'
             },
             'Luma Store endpoints': {
                 apps: '/lumastore/apps',
