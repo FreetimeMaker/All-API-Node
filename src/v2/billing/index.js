@@ -59,6 +59,14 @@ function purchase(row, packageName) {
     };
 }
 
+async function resolveDeveloperCrypto(client, developerId) {
+    if (!developerId) return { addresses: {}, settlementAsset: null };
+    const { data, error } = await client.from('luma_developer_funding')
+        .select('crypto_addresses,billing_settlement_asset').eq('developer_id', developerId).maybeSingle();
+    if (error) throw error;
+    return { addresses: data?.crypto_addresses || {}, settlementAsset: data?.billing_settlement_asset || null };
+}
+
 async function resolveDeveloperSolanaRecipient(client, developerId) {
     if (!developerId) return null;
     const { data, error } = await client.from('luma_developer_funding')
@@ -115,6 +123,32 @@ router.get('/fees/tiers', async (req, res) => {
         res.json({ tiers: data || [] });
     } catch (error) {
         fail(res, error, 'FEE_TIERS_UNAVAILABLE');
+    }
+});
+
+router.get('/fees/settlement', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const funding = await resolveDeveloperCrypto(client, user.id);
+        res.json({ settlementAsset: funding.settlementAsset, availableAssets: Object.keys(funding.addresses) });
+    } catch (error) {
+        fail(res, error, 'SETTLEMENT_SETTINGS_UNAVAILABLE');
+    }
+});
+
+router.put('/fees/settlement', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const asset = String(req.body?.asset || '').trim();
+        const funding = await resolveDeveloperCrypto(client, user.id);
+        if (!asset || !funding.addresses[asset]) return res.status(400).json({ code: 'UNSUPPORTED_SETTLEMENT_ASSET', message: 'Settlement asset must have a configured funding address' });
+        const { error } = await client.from('luma_developer_funding').update({ billing_settlement_asset: asset }).eq('developer_id', user.id);
+        if (error) throw error;
+        res.json({ settlementAsset: asset });
+    } catch (error) {
+        fail(res, error, 'SETTLEMENT_SETTINGS_UPDATE_FAILED');
     }
 });
 
