@@ -105,6 +105,27 @@ async function feeForMonthlyAmount(client, amountMinor, currency) {
     };
 }
 
+async function assertDeveloperCanReceivePayments(client, developerId) {
+    if (!developerId) return;
+    const now = new Date().toISOString();
+    const { data, error } = await client.from('luma_billing_monthly_statements')
+        .select('id,period_start,period_end,fee_amount_minor,currency,due_at,status')
+        .eq('developer_id', developerId)
+        .eq('status', 'DUE')
+        .not('due_at', 'is', null)
+        .lte('due_at', now)
+        .order('due_at', { ascending: true })
+        .limit(1);
+    if (error) throw error;
+    if (data?.length) {
+        const e = new Error('Developer billing is suspended until the overdue Luma fee is paid');
+        e.status = 402;
+        e.code = 'DEVELOPER_BILLING_SUSPENDED';
+        e.statement = data[0];
+        throw e;
+    }
+}
+
 function fail(res, error, fallback = 'BILLING_ERROR') {
     const status = error.status || 500;
     return res.status(status).json({
@@ -183,6 +204,7 @@ router.post('/apps/:packageName/purchases', async (req, res) => {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.packageName);
+        await assertDeveloperCanReceivePayments(client, app.developer_id);
         const productId = String(req.body?.productId || '').trim();
         if (!productId) return res.status(400).json({ code: 'INVALID_PRODUCT', message: 'productId is required' });
 
@@ -218,6 +240,7 @@ router.get('/apps/:packageName/purchases/:transactionId/payment', async (req, re
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const app = await resolveApp(client, req.params.packageName);
+        await assertDeveloperCanReceivePayments(client, app.developer_id);
         const { data: row, error } = await client.from('luma_billing_purchases').select('*')
             .eq('id', req.params.transactionId).eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
         if (error) throw error;
