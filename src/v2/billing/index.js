@@ -127,7 +127,44 @@ async function verifySplTransfer(signature, recipientOwner, mint, amountAtomic) 
     return false;
 }
 
-async function verifySettlementTransfer(statement, txid) {
+function normalizeFundingAsset(key) {
+    const [assetRaw, chainRaw] = String(key || '').split('::');
+    const asset = assetRaw.toLowerCase();
+    const chain = (chainRaw || assetRaw).toUpperCase();
+    const map = {
+        bitcoin: { asset: 'BTC', chain: 'BITCOIN' },
+        litecoin: { asset: 'LTC', chain: 'LITECOIN' },
+        monero: { asset: 'XMR', chain: 'MONERO' },
+        solana: { asset: 'SOL', chain: 'SOLANA' },
+        stellar: { asset: 'XLM', chain: 'STELLAR' },
+        usdc: { asset: 'USDC', chain: chainRaw ? chain : 'SOLANA' },
+        tether: { asset: 'USDT', chain: chainRaw ? chain : 'SOLANA' }
+    };
+    return map[asset] || null;
+}
+
+async function verifyStellarTransfer(txid, recipient, amountAtomic) {
+    const base = process.env.STELLAR_HORIZON_URL || 'https://horizon.stellar.org';
+    const { data: tx } = await axios.get(base + '/transactions/' + encodeURIComponent(txid), { timeout: 15000 });
+    if (!tx?.successful) return false;
+    const { data: ops } = await axios.get(base + '/transactions/' + encodeURIComponent(txid) + '/operations', { timeout: 15000 });
+    return (ops?._embedded?.records || []).some(op => op.type === 'payment' && op.asset_type === 'native' &&
+        op.to === recipient && BigInt(Math.round(Number(op.amount) * 1e7)) === BigInt(String(amountAtomic)));
+}
+
+async function verifyMoneroTransfer(txid, recipient, amountAtomic, proof) {
+    const rpc = process.env.MONERO_WALLET_RPC_URL;
+    if (!rpc) throw Object.assign(new Error('MONERO_WALLET_RPC_URL is required for private Monero payment verification'), { status: 503, code: 'MONERO_VERIFIER_NOT_CONFIGURED' });
+    if (!proof) throw Object.assign(new Error('Monero tx proof is required'), { status: 400, code: 'MONERO_TX_PROOF_REQUIRED' });
+    const { data } = await axios.post(rpc + '/json_rpc', {
+        jsonrpc: '2.0', id: '0', method: 'check_tx_proof',
+        params: { txid, address: recipient, message: '', signature: proof }
+    }, { timeout: 15000 });
+    const r = data?.result;
+    return Boolean(r?.good) && Number(r?.confirmations || 0) > 0 && BigInt(String(r?.received || 0)) === BigInt(String(amountAtomic));
+}
+
+async function verifySettlementTransfer(statement, txid, proof = null) {
     const chain = String(statement.settlement_chain || '').toUpperCase();
     const asset = String(statement.settlement_asset || '').toUpperCase();
     const amount = statement.settlement_amount_atomic;
@@ -135,6 +172,8 @@ async function verifySettlementTransfer(statement, txid) {
     if (chain === 'SOLANA' && asset === 'SOL') return verifySolTransfer(txid, recipient, amount);
     if (chain === 'BITCOIN' && asset === 'BTC') return verifyUtxoTransfer('BITCOIN', txid, recipient, amount);
     if (chain === 'LITECOIN' && asset === 'LTC') return verifyUtxoTransfer('LITECOIN', txid, recipient, amount);
+    if (chain === 'STELLAR' && asset === 'XLM') return verifyStellarTransfer(txid, recipient, amount);
+    if (chain === 'MONERO' && asset === 'XMR') return verifyMoneroTransfer(txid, recipient, amount, proof);
     if (chain === 'SOLANA' && (asset === 'USDC' || asset === 'USDT')) {
         const mint = asset === 'USDC'
             ? (process.env.SOLANA_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
@@ -207,7 +246,16 @@ router.get('/fees/settlement', async (req, res) => {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const funding = await resolveDeveloperCrypto(client, user.id);
-        res.json({ settlementAsset: funding.settlementAsset, availableAssets: Object.keys(funding.addresses) });
+        const seen = new Set();
+        const availableAssets = Object.keys(funding.addresses).map(key => {
+            const normalized = normalizeFundingAsset(key);
+            if (!normalized) return null;
+            const id = normalized.asset + '::' + normalized.chain;
+            if (seen.has(id)) return null;
+            seen.add(id);
+            return { id, ...normalized };
+        }).filter(Boolean);
+        res.json({ settlementAsset: funding.settlementAsset, availableAssets });
     } catch (error) {
         fail(res, error, 'SETTLEMENT_SETTINGS_UNAVAILABLE');
     }
@@ -245,7 +293,7 @@ router.post('/fees/monthly/:statementId/verify', async (req, res) => {
         if (statement.settlement_quote_expires_at && Date.now() > Date.parse(statement.settlement_quote_expires_at)) {
             return res.status(409).json({ code: 'SETTLEMENT_QUOTE_EXPIRED', message: 'Settlement quote has expired' });
         }
-        const valid = await verifySettlementTransfer(statement, txid);
+        const valid = await verifySettlementTransfer(statement, txid, req.body?.txProof || null);
         if (!valid) return res.status(422).json({ code: 'PAYMENT_NOT_VERIFIED', message: 'Settlement transaction could not be verified' });
         const now = new Date().toISOString();
         const { data: updated, error: updateError } = await client.from('luma_billing_monthly_statements')
