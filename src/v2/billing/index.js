@@ -4,6 +4,7 @@ const axios = require('axios');
 const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
 const { getConnection } = require('../../lib/arcade');
+const { catalogEntries, catalogEntry } = require('./crypto-catalog');
 
 const PAYMENT_TTL_MS = 15 * 60 * 1000;
 
@@ -127,22 +128,6 @@ async function verifySplTransfer(signature, recipientOwner, mint, amountAtomic) 
     return false;
 }
 
-function normalizeFundingAsset(key) {
-    const [assetRaw, chainRaw] = String(key || '').split('::');
-    const asset = assetRaw.toLowerCase();
-    const chain = (chainRaw || assetRaw).toUpperCase();
-    const map = {
-        bitcoin: { asset: 'BTC', chain: 'BITCOIN' },
-        litecoin: { asset: 'LTC', chain: 'LITECOIN' },
-        monero: { asset: 'XMR', chain: 'MONERO' },
-        solana: { asset: 'SOL', chain: 'SOLANA' },
-        stellar: { asset: 'XLM', chain: 'STELLAR' },
-        usdc: { asset: 'USDC', chain: chainRaw ? chain : 'SOLANA' },
-        tether: { asset: 'USDT', chain: chainRaw ? chain : 'SOLANA' }
-    };
-    return map[asset] || null;
-}
-
 async function verifyStellarTransfer(txid, recipient, amountAtomic) {
     const base = process.env.STELLAR_HORIZON_URL || 'https://horizon.stellar.org';
     const { data: tx } = await axios.get(base + '/transactions/' + encodeURIComponent(txid), { timeout: 15000 });
@@ -246,15 +231,10 @@ router.get('/fees/settlement', async (req, res) => {
         const { user, token } = await getLumaStoreAuthenticatedUser(req);
         const client = getLumaStoreSupabaseClient(token);
         const funding = await resolveDeveloperCrypto(client, user.id);
-        const seen = new Set();
-        const availableAssets = Object.keys(funding.addresses).map(key => {
-            const normalized = normalizeFundingAsset(key);
-            if (!normalized) return null;
-            const id = normalized.asset + '::' + normalized.chain;
-            if (seen.has(id)) return null;
-            seen.add(id);
-            return { id, ...normalized };
-        }).filter(Boolean);
+        const availableAssets = catalogEntries().map(entry => ({
+            ...entry,
+            configured: Boolean(funding.addresses[entry.id])
+        }));
         res.json({ settlementAsset: funding.settlementAsset, availableAssets });
     } catch (error) {
         fail(res, error, 'SETTLEMENT_SETTINGS_UNAVAILABLE');
@@ -267,7 +247,8 @@ router.put('/fees/settlement', async (req, res) => {
         const client = getLumaStoreSupabaseClient(token);
         const asset = String(req.body?.asset || '').trim();
         const funding = await resolveDeveloperCrypto(client, user.id);
-        if (!asset || !funding.addresses[asset]) return res.status(400).json({ code: 'UNSUPPORTED_SETTLEMENT_ASSET', message: 'Settlement asset must have a configured funding address' });
+        const entry = catalogEntry(asset);
+        if (!entry || !funding.addresses[asset]) return res.status(400).json({ code: 'UNSUPPORTED_SETTLEMENT_ASSET', message: 'Settlement asset/network must exist in Developer Funding and have a configured address' });
         const { error } = await client.from('luma_developer_funding').update({ billing_settlement_asset: asset }).eq('developer_id', user.id);
         if (error) throw error;
         res.json({ settlementAsset: asset });
