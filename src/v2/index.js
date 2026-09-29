@@ -62,7 +62,8 @@ router.get('/v2', (req, res) => {
                 ratings: '/lumastore/apps/:id/ratings',
                 myRating: '/lumastore/apps/:id/rating/me',
                 setMyRating: 'PUT /lumastore/apps/:id/rating/me',
-                deleteMyRating: 'DELETE /lumastore/apps/:id/rating/me'
+                deleteMyRating: 'DELETE /lumastore/apps/:id/rating/me',
+                resolveSource: '/lumastore/sources/resolve?url=<repository-or-direct-url>&platform=<Linux|Android|Windows>'
             },
             'MD-Blog endpoints': {
                 posts: '/blog/posts',
