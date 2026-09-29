@@ -364,23 +364,26 @@ router.get('/sources/resolve', async (req, res) => {
         const sourceUrl = String(req.query.url || '').trim();
         if (!sourceUrl) return res.status(400).json({ error: 'url is required' });
         const source = trackedSource(sourceUrl);
+        const provider = String(req.get('x-vcs-provider') || '').toLowerCase();
+        const providerToken = String(req.get('authorization') || '').startsWith('Bearer ') ? String(req.get('authorization')).slice(7).trim() : '';
+        const authHeaders = providerToken && (provider === source.provider || (provider === 'custom:codeberg' && source.provider === 'codeberg')) ? { Authorization: 'Bearer ' + providerToken } : {};
         let version = null, publishedAt = null, title = null, assets = [];
 
         if (source.provider === 'github') {
-            const release = await fetchJson('https://api.github.com/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest');
+            const release = await fetchJson('https://api.github.com/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest', authHeaders);
             version = release.tag_name || release.name || null;
             title = release.name || version;
             publishedAt = release.published_at || null;
             assets = (release.assets || []).map(a => ({ name: a.name, download_url: a.browser_download_url, size: a.size || null, platform: assetPlatform(a.name) }));
         } else if (source.provider === 'gitlab') {
-            const release = await fetchJson('https://gitlab.com/api/v4/projects/' + encodeURIComponent(source.project) + '/releases/permalink/latest');
+            const release = await fetchJson('https://gitlab.com/api/v4/projects/' + encodeURIComponent(source.project) + '/releases/permalink/latest', authHeaders);
             version = release.tag_name || release.name || null;
             title = release.name || version;
             publishedAt = release.released_at || release.created_at || null;
             const links = release.assets?.links || [];
             assets = links.map(a => ({ name: a.name || a.url, download_url: a.direct_asset_url || a.url, size: null, platform: assetPlatform(a.name || a.url) }));
         } else if (source.provider === 'codeberg') {
-            const release = await fetchJson('https://codeberg.org/api/v1/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest');
+            const release = await fetchJson('https://codeberg.org/api/v1/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest', authHeaders);
             version = release.tag_name || release.name || null;
             title = release.name || version;
             publishedAt = release.published_at || release.created_at || null;
