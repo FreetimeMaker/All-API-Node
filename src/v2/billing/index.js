@@ -2,6 +2,10 @@ const express = require('express');
 const crypto = require('node:crypto');
 const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
+const { getConnection } = require('../../lib/arcade');
+
+const SOLANA_RECIPIENT = process.env.LUMA_BILLING_SOLANA_RECIPIENT || process.env.NEXT_PUBLIC_SOLANA_RECIPIENT || '';
+const PAYMENT_TTL_MS = 15 * 60 * 1000;
 
 async function resolveApp(client, packageName) {
     const { data, error } = await client.from('store_apps')
@@ -54,6 +58,20 @@ function purchase(row, packageName) {
         signature: row.receipt_signature || '',
         expiresAtEpochMillis: row.expires_at ? Date.parse(row.expires_at) : null
     };
+}
+
+async function verifySolTransfer(signature, recipient, lamports) {
+    const parsed = await getConnection().getParsedTransaction(signature, {
+        commitment: 'confirmed',
+        maxSupportedTransactionVersion: 0
+    });
+    if (!parsed || parsed.meta?.err) return false;
+    for (const ix of parsed.transaction.message.instructions || []) {
+        if (ix.program !== 'system' || ix.parsed?.type !== 'transfer') continue;
+        const info = ix.parsed?.info || {};
+        if (info.destination === recipient && Number(info.lamports) === Number(lamports)) return true;
+    }
+    return false;
 }
 
 function fail(res, error, fallback = 'BILLING_ERROR') {
@@ -109,6 +127,62 @@ router.post('/apps/:packageName/purchases', async (req, res) => {
         res.status(201).json(purchase(row, app.package_name));
     } catch (error) {
         fail(res, error, 'PURCHASE_CREATE_FAILED');
+    }
+});
+
+router.get('/apps/:packageName/purchases/:transactionId/payment', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const app = await resolveApp(client, req.params.packageName);
+        const { data: row, error } = await client.from('luma_billing_purchases').select('*')
+            .eq('id', req.params.transactionId).eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
+        if (!row) return res.status(404).json({ code: 'PURCHASE_NOT_FOUND', message: 'Purchase not found' });
+        if (!SOLANA_RECIPIENT) return res.status(503).json({ code: 'PAYMENT_NOT_CONFIGURED', message: 'Luma Billing Solana recipient is not configured' });
+        const expires = Date.parse(row.created_at) + PAYMENT_TTL_MS;
+        res.json({
+            transactionId: row.id,
+            chain: 'SOLANA',
+            asset: 'SOL',
+            recipient: SOLANA_RECIPIENT,
+            amountAtomic: Number(row.amount_minor),
+            reference: row.id,
+            expiresAtEpochMillis: expires
+        });
+    } catch (error) {
+        fail(res, error, 'PAYMENT_REQUEST_FAILED');
+    }
+});
+
+router.post('/apps/:packageName/purchases/:transactionId/verify', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const app = await resolveApp(client, req.params.packageName);
+        const signature = String(req.body?.chainTransactionId || '').trim();
+        if (!signature) return res.status(400).json({ code: 'TRANSACTION_REQUIRED', message: 'chainTransactionId is required' });
+        const { data: row, error } = await client.from('luma_billing_purchases').select('*')
+            .eq('id', req.params.transactionId).eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
+        if (!row) return res.status(404).json({ code: 'PURCHASE_NOT_FOUND', message: 'Purchase not found' });
+        if (row.status === 'PURCHASED') return res.json({ status: 'PURCHASED', purchase: purchase(row, app.package_name) });
+        if (Date.now() > Date.parse(row.created_at) + PAYMENT_TTL_MS) {
+            return res.json({ status: 'EXPIRED', purchase: null });
+        }
+        if (!SOLANA_RECIPIENT) return res.status(503).json({ code: 'PAYMENT_NOT_CONFIGURED', message: 'Luma Billing Solana recipient is not configured' });
+        const valid = await verifySolTransfer(signature, SOLANA_RECIPIENT, row.amount_minor);
+        if (!valid) return res.json({ status: 'VERIFYING', purchase: null });
+
+        const purchasedAt = new Date().toISOString();
+        const receiptPayload = JSON.stringify({ transactionId: row.id, productId: row.product_id, packageName: app.package_name, chain: 'SOLANA', chainTransactionId: signature, purchasedAt });
+        const { data: updated, error: updateError } = await client.from('luma_billing_purchases')
+            .update({ status: 'PURCHASED', purchased_at: purchasedAt, receipt: receiptPayload })
+            .eq('id', row.id).eq('status', 'PENDING').select('*').single();
+        if (updateError) throw updateError;
+        res.json({ status: 'PURCHASED', purchase: purchase(updated, app.package_name) });
+    } catch (error) {
+        fail(res, error, 'PAYMENT_VERIFY_FAILED');
     }
 });
 
