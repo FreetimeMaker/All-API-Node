@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('node:crypto');
+const axios = require('axios');
 const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
 const { getConnection } = require('../../lib/arcade');
@@ -90,6 +91,60 @@ async function verifySolTransfer(signature, recipient, lamports) {
     return false;
 }
 
+async function verifyUtxoTransfer(chain, txid, recipient, amountAtomic) {
+    const base = chain === 'BITCOIN'
+        ? (process.env.BITCOIN_EXPLORER_API || 'https://blockstream.info/api')
+        : (process.env.LITECOIN_EXPLORER_API || 'https://litecoinspace.org/api');
+    const { data: tx } = await axios.get(base + '/tx/' + encodeURIComponent(txid), { timeout: 15000 });
+    if (!tx?.status?.confirmed) return false;
+    return (tx.vout || []).some(out => out.scriptpubkey_address === recipient && Number(out.value) === Number(amountAtomic));
+}
+
+async function verifySplTransfer(signature, recipientOwner, mint, amountAtomic) {
+    const parsed = await getConnection().getParsedTransaction(signature, {
+        commitment: 'confirmed', maxSupportedTransactionVersion: 0
+    });
+    if (!parsed || parsed.meta?.err) return false;
+    const keys = parsed.transaction.message.accountKeys || [];
+    const ownerByTokenAccount = new Map();
+    const mintByTokenAccount = new Map();
+    for (const balance of [...(parsed.meta?.preTokenBalances || []), ...(parsed.meta?.postTokenBalances || [])]) {
+        const key = keys[balance.accountIndex];
+        const pubkey = typeof key === 'string' ? key : key?.pubkey?.toString?.();
+        if (pubkey) {
+            ownerByTokenAccount.set(pubkey, balance.owner);
+            mintByTokenAccount.set(pubkey, balance.mint);
+        }
+    }
+    for (const ix of parsed.transaction.message.instructions || []) {
+        if (ix.program !== 'spl-token' || !['transfer','transferChecked'].includes(ix.parsed?.type)) continue;
+        const info = ix.parsed?.info || {};
+        const destination = String(info.destination || '');
+        const amount = Number(info.amount ?? info.tokenAmount?.amount);
+        if (ownerByTokenAccount.get(destination) === recipientOwner &&
+            mintByTokenAccount.get(destination) === mint && amount === Number(amountAtomic)) return true;
+    }
+    return false;
+}
+
+async function verifySettlementTransfer(statement, txid) {
+    const chain = String(statement.settlement_chain || '').toUpperCase();
+    const asset = String(statement.settlement_asset || '').toUpperCase();
+    const amount = statement.settlement_amount_atomic;
+    const recipient = statement.settlement_recipient;
+    if (chain === 'SOLANA' && asset === 'SOL') return verifySolTransfer(txid, recipient, amount);
+    if (chain === 'BITCOIN' && asset === 'BTC') return verifyUtxoTransfer('BITCOIN', txid, recipient, amount);
+    if (chain === 'LITECOIN' && asset === 'LTC') return verifyUtxoTransfer('LITECOIN', txid, recipient, amount);
+    if (chain === 'SOLANA' && (asset === 'USDC' || asset === 'USDT')) {
+        const mint = asset === 'USDC'
+            ? (process.env.SOLANA_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+            : process.env.SOLANA_USDT_MINT;
+        if (!mint) throw Object.assign(new Error('Token mint is not configured'), { status: 503, code: 'TOKEN_NOT_CONFIGURED' });
+        return verifySplTransfer(txid, recipient, mint, amount);
+    }
+    throw Object.assign(new Error('Settlement chain or asset is not supported'), { status: 400, code: 'UNSUPPORTED_SETTLEMENT_ASSET' });
+}
+
 async function feeForMonthlyAmount(client, amountMinor, currency) {
     const { data, error } = await client.from('luma_billing_fee_tiers').select('*')
         .eq('currency', currency).eq('active', true)
@@ -170,6 +225,36 @@ router.put('/fees/settlement', async (req, res) => {
         res.json({ settlementAsset: asset });
     } catch (error) {
         fail(res, error, 'SETTLEMENT_SETTINGS_UPDATE_FAILED');
+    }
+});
+
+router.post('/fees/monthly/:statementId/verify', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const txid = String(req.body?.chainTransactionId || '').trim();
+        if (!txid) return res.status(400).json({ code: 'TRANSACTION_REQUIRED', message: 'chainTransactionId is required' });
+        const { data: statement, error } = await client.from('luma_billing_monthly_statements').select('*')
+            .eq('id', req.params.statementId).eq('developer_id', user.id).maybeSingle();
+        if (error) throw error;
+        if (!statement) return res.status(404).json({ code: 'STATEMENT_NOT_FOUND', message: 'Monthly statement not found' });
+        if (statement.status === 'PAID') return res.json({ status: 'PAID', statement });
+        if (!statement.settlement_asset || !statement.settlement_chain || !statement.settlement_recipient || statement.settlement_amount_atomic == null) {
+            return res.status(409).json({ code: 'SETTLEMENT_QUOTE_REQUIRED', message: 'Statement has no settlement quote' });
+        }
+        if (statement.settlement_quote_expires_at && Date.now() > Date.parse(statement.settlement_quote_expires_at)) {
+            return res.status(409).json({ code: 'SETTLEMENT_QUOTE_EXPIRED', message: 'Settlement quote has expired' });
+        }
+        const valid = await verifySettlementTransfer(statement, txid);
+        if (!valid) return res.status(422).json({ code: 'PAYMENT_NOT_VERIFIED', message: 'Settlement transaction could not be verified' });
+        const now = new Date().toISOString();
+        const { data: updated, error: updateError } = await client.from('luma_billing_monthly_statements')
+            .update({ status: 'PAID', paid_at: now, settlement_transaction_id: txid, settlement_verified_at: now })
+            .eq('id', statement.id).eq('developer_id', user.id).select('*').single();
+        if (updateError) throw updateError;
+        res.json({ status: 'PAID', statement: updated });
+    } catch (error) {
+        fail(res, error, 'SETTLEMENT_VERIFY_FAILED');
     }
 });
 
