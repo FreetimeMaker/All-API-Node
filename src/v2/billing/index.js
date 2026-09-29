@@ -4,7 +4,6 @@ const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
 const { getConnection } = require('../../lib/arcade');
 
-const SOLANA_RECIPIENT = process.env.LUMA_BILLING_SOLANA_RECIPIENT || process.env.NEXT_PUBLIC_SOLANA_RECIPIENT || '';
 const PAYMENT_TTL_MS = 15 * 60 * 1000;
 
 async function resolveApp(client, packageName) {
@@ -58,6 +57,15 @@ function purchase(row, packageName) {
         signature: row.receipt_signature || '',
         expiresAtEpochMillis: row.expires_at ? Date.parse(row.expires_at) : null
     };
+}
+
+async function resolveDeveloperSolanaRecipient(client, developerId) {
+    if (!developerId) return null;
+    const { data, error } = await client.from('luma_developer_funding')
+        .select('crypto_addresses').eq('developer_id', developerId).maybeSingle();
+    if (error) throw error;
+    const addresses = data?.crypto_addresses || {};
+    return addresses['solana::Solana'] || addresses.solana || null;
 }
 
 async function verifySolTransfer(signature, recipient, lamports) {
@@ -139,13 +147,14 @@ router.get('/apps/:packageName/purchases/:transactionId/payment', async (req, re
             .eq('id', req.params.transactionId).eq('app_id', app.id).eq('user_id', user.id).maybeSingle();
         if (error) throw error;
         if (!row) return res.status(404).json({ code: 'PURCHASE_NOT_FOUND', message: 'Purchase not found' });
-        if (!SOLANA_RECIPIENT) return res.status(503).json({ code: 'PAYMENT_NOT_CONFIGURED', message: 'Luma Billing Solana recipient is not configured' });
+        const recipient = await resolveDeveloperSolanaRecipient(client, app.developer_id);
+        if (!recipient) return res.status(409).json({ code: 'DEVELOPER_PAYMENT_NOT_CONFIGURED', message: 'Developer has no Solana funding address configured' });
         const expires = Date.parse(row.created_at) + PAYMENT_TTL_MS;
         res.json({
             transactionId: row.id,
             chain: 'SOLANA',
             asset: 'SOL',
-            recipient: SOLANA_RECIPIENT,
+            recipient,
             amountAtomic: Number(row.amount_minor),
             reference: row.id,
             expiresAtEpochMillis: expires
@@ -170,8 +179,9 @@ router.post('/apps/:packageName/purchases/:transactionId/verify', async (req, re
         if (Date.now() > Date.parse(row.created_at) + PAYMENT_TTL_MS) {
             return res.json({ status: 'EXPIRED', purchase: null });
         }
-        if (!SOLANA_RECIPIENT) return res.status(503).json({ code: 'PAYMENT_NOT_CONFIGURED', message: 'Luma Billing Solana recipient is not configured' });
-        const valid = await verifySolTransfer(signature, SOLANA_RECIPIENT, row.amount_minor);
+        const recipient = await resolveDeveloperSolanaRecipient(client, app.developer_id);
+        if (!recipient) return res.status(409).json({ code: 'DEVELOPER_PAYMENT_NOT_CONFIGURED', message: 'Developer has no Solana funding address configured' });
+        const valid = await verifySolTransfer(signature, recipient, row.amount_minor);
         if (!valid) return res.json({ status: 'VERIFYING', purchase: null });
 
         const purchasedAt = new Date().toISOString();
