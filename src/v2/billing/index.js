@@ -5,7 +5,7 @@ const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
 const { getConnection } = require('../../lib/arcade');
 const { catalogEntries, catalogEntry } = require('./crypto-catalog');
-const { evmConfig, tokenContract } = require('./chain-config');
+const { evmConfig } = require('./chain-config');
 
 const PAYMENT_TTL_MS = 15 * 60 * 1000;
 
@@ -205,15 +205,15 @@ async function verifySettlementTransfer(statement, txid, proof = null) {
     if (evmNetworks.has(chain)) {
         const nativeByNetwork = { ETHEREUM:'ETH', 'BNB SMART CHAIN (BEP-20)':'BNB', POLYGON:'POL', 'AVALANCHE C-CHAIN':'AVAX' };
         if (nativeByNetwork[chain] === asset) return verifyEvmNative(chain, txid, recipient, amount);
-        return verifyEvmToken(chain, txid, recipient, amount, tokenContract(asset, chain));
+        const entry = catalogEntries().find(x => x.asset === asset && x.network.toUpperCase() === chain);
+        return verifyEvmToken(chain, txid, recipient, amount, entry?.contract || null);
     }
     if (['TRON','CARDANO','POLKADOT','AVALANCHE P-CHAIN','TON'].includes(chain)) {
         return verifyConfiguredRest(chain.replace(/[^A-Z0-9]+/g,'_'), txid, recipient, amount);
     }
     if (chain === 'SOLANA' && (asset === 'USDC' || asset === 'USDT')) {
-        const mint = asset === 'USDC'
-            ? (process.env.SOLANA_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-            : process.env.SOLANA_USDT_MINT;
+        const entry = catalogEntries().find(x => x.asset === asset && x.network === 'Solana');
+        const mint = entry?.contract || null;
         if (!mint) throw Object.assign(new Error('Token mint is not configured'), { status: 503, code: 'TOKEN_NOT_CONFIGURED' });
         return verifySplTransfer(txid, recipient, mint, amount);
     }
