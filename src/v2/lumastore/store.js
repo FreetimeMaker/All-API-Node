@@ -334,6 +334,71 @@ router.delete('/apps/:id/rating/me', async (req, res) => {
     }
 });
 
+
+function trackedSource(value) {
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'https:') throw new Error('Source URL must use HTTPS');
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (url.hostname === 'github.com' && parts.length >= 2) return { provider: 'github', owner: parts[0], repo: parts[1].replace(/\.git$/i, '') };
+    if (url.hostname === 'gitlab.com' && parts.length >= 2) return { provider: 'gitlab', project: parts.join('/').replace(/\.git$/i, '') };
+    if (url.hostname === 'codeberg.org' && parts.length >= 2) return { provider: 'codeberg', owner: parts[0], repo: parts[1].replace(/\.git$/i, '') };
+    return { provider: 'direct', url: url.toString() };
+}
+
+function assetPlatform(name) {
+    const value = String(name || '').toLowerCase();
+    if (value.endsWith('.apk')) return 'Android';
+    if (value.endsWith('.appimage') || value.endsWith('.deb') || value.endsWith('.rpm') || value.endsWith('.flatpak') || value.endsWith('.flatpakref')) return 'Linux';
+    if (value.endsWith('.exe') || value.endsWith('.msi') || value.endsWith('.msix')) return 'Windows';
+    return 'Other';
+}
+
+async function fetchJson(url, headers = {}) {
+    const response = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'Luma-Store-All-API', ...headers } });
+    if (!response.ok) throw Object.assign(new Error('Unable to resolve release source'), { status: response.status });
+    return response.json();
+}
+
+router.get('/sources/resolve', async (req, res) => {
+    try {
+        const sourceUrl = String(req.query.url || '').trim();
+        if (!sourceUrl) return res.status(400).json({ error: 'url is required' });
+        const source = trackedSource(sourceUrl);
+        let version = null, publishedAt = null, title = null, assets = [];
+
+        if (source.provider === 'github') {
+            const release = await fetchJson('https://api.github.com/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest');
+            version = release.tag_name || release.name || null;
+            title = release.name || version;
+            publishedAt = release.published_at || null;
+            assets = (release.assets || []).map(a => ({ name: a.name, download_url: a.browser_download_url, size: a.size || null, platform: assetPlatform(a.name) }));
+        } else if (source.provider === 'gitlab') {
+            const release = await fetchJson('https://gitlab.com/api/v4/projects/' + encodeURIComponent(source.project) + '/releases/permalink/latest');
+            version = release.tag_name || release.name || null;
+            title = release.name || version;
+            publishedAt = release.released_at || release.created_at || null;
+            const links = release.assets?.links || [];
+            assets = links.map(a => ({ name: a.name || a.url, download_url: a.direct_asset_url || a.url, size: null, platform: assetPlatform(a.name || a.url) }));
+        } else if (source.provider === 'codeberg') {
+            const release = await fetchJson('https://codeberg.org/api/v1/repos/' + encodeURIComponent(source.owner) + '/' + encodeURIComponent(source.repo) + '/releases/latest');
+            version = release.tag_name || release.name || null;
+            title = release.name || version;
+            publishedAt = release.published_at || release.created_at || null;
+            assets = (release.assets || []).map(a => ({ name: a.name, download_url: a.browser_download_url, size: a.size || null, platform: assetPlatform(a.name) }));
+        } else {
+            const parsed = new URL(source.url);
+            const name = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || 'Download');
+            assets = [{ name, download_url: source.url, size: null, platform: assetPlatform(name) }];
+        }
+
+        const requestedPlatform = String(req.query.platform || '').trim().toLowerCase();
+        if (requestedPlatform) assets = assets.filter(a => a.platform.toLowerCase() === requestedPlatform);
+        res.json({ source_url: sourceUrl, provider: source.provider, version, title, published_at: publishedAt, assets });
+    } catch (error) {
+        res.status(error.status === 404 ? 404 : 400).json({ error: 'Unable to resolve source', message: error.message });
+    }
+});
+
 router.get('/package-formats', (_req, res) => {
     res.json({ Linux: LINUX_PACKAGE_FORMATS });
 });
