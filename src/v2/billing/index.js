@@ -5,6 +5,7 @@ const router = express.Router();
 const { getLumaStoreSupabaseClient, getLumaStoreAuthenticatedUser } = require('../../lib/supabase');
 const { getConnection } = require('../../lib/arcade');
 const { catalogEntries, catalogEntry } = require('./crypto-catalog');
+const { evmConfig, tokenContract } = require('./chain-config');
 
 const PAYMENT_TTL_MS = 15 * 60 * 1000;
 
@@ -155,9 +156,10 @@ async function verifyMoneroTransfer(txid, recipient, amountAtomic, proof) {
 }
 
 async function evmRpc(network, method, params) {
-    const envKey = 'EVM_' + network.toUpperCase().replace(/[^A-Z0-9]+/g, '_') + '_RPC_URL';
-    const rpc = process.env[envKey];
-    if (!rpc) throw Object.assign(new Error(envKey + ' is required'), { status: 503, code: 'CHAIN_VERIFIER_NOT_CONFIGURED' });
+    const config = evmConfig(network);
+    if (!config) throw Object.assign(new Error('Unknown EVM network'), { status: 400, code: 'UNSUPPORTED_SETTLEMENT_ASSET' });
+    const rpc = process.env[config.rpcEnv] || (config.fallbackRpcEnv ? process.env[config.fallbackRpcEnv] : null);
+    if (!rpc) throw Object.assign(new Error(config.rpcEnv + ' is required'), { status: 503, code: 'CHAIN_VERIFIER_NOT_CONFIGURED' });
     const { data } = await axios.post(rpc, { jsonrpc: '2.0', id: 1, method, params }, { timeout: 15000 });
     if (data?.error) throw new Error(data.error.message || 'EVM RPC error');
     return data?.result;
@@ -203,8 +205,7 @@ async function verifySettlementTransfer(statement, txid, proof = null) {
     if (evmNetworks.has(chain)) {
         const nativeByNetwork = { ETHEREUM:'ETH', 'BNB SMART CHAIN (BEP-20)':'BNB', POLYGON:'POL', 'AVALANCHE C-CHAIN':'AVAX' };
         if (nativeByNetwork[chain] === asset) return verifyEvmNative(chain, txid, recipient, amount);
-        const contractKey = 'TOKEN_' + asset + '_' + chain.replace(/[^A-Z0-9]+/g,'_') + '_CONTRACT';
-        return verifyEvmToken(chain, txid, recipient, amount, process.env[contractKey]);
+        return verifyEvmToken(chain, txid, recipient, amount, tokenContract(asset, chain));
     }
     if (['TRON','CARDANO','POLKADOT','AVALANCHE P-CHAIN','TON'].includes(chain)) {
         return verifyConfiguredRest(chain.replace(/[^A-Z0-9]+/g,'_'), txid, recipient, amount);
