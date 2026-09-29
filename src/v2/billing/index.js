@@ -82,6 +82,21 @@ async function verifySolTransfer(signature, recipient, lamports) {
     return false;
 }
 
+async function feeForMonthlyAmount(client, amountMinor, currency) {
+    const { data, error } = await client.from('luma_billing_fee_tiers').select('*')
+        .eq('currency', currency).eq('active', true)
+        .lte('min_monthly_amount_minor', amountMinor)
+        .order('min_monthly_amount_minor', { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (!data || (data.max_monthly_amount_minor != null && amountMinor > Number(data.max_monthly_amount_minor))) {
+        throw Object.assign(new Error('No fee tier configured for this amount'), { status: 500, code: 'FEE_TIER_MISSING' });
+    }
+    return {
+        basisPoints: Number(data.fee_basis_points),
+        amountMinor: Math.floor(Number(amountMinor) * Number(data.fee_basis_points) / 10000)
+    };
+}
+
 function fail(res, error, fallback = 'BILLING_ERROR') {
     const status = error.status || 500;
     return res.status(status).json({
@@ -89,6 +104,32 @@ function fail(res, error, fallback = 'BILLING_ERROR') {
         message: error.message || 'Billing request failed'
     });
 }
+
+router.get('/fees/tiers', async (req, res) => {
+    try {
+        await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient();
+        const { data, error } = await client.from('luma_billing_fee_tiers').select('*')
+            .eq('active', true).order('currency').order('min_monthly_amount_minor');
+        if (error) throw error;
+        res.json({ tiers: data || [] });
+    } catch (error) {
+        fail(res, error, 'FEE_TIERS_UNAVAILABLE');
+    }
+});
+
+router.get('/fees/monthly', async (req, res) => {
+    try {
+        const { user, token } = await getLumaStoreAuthenticatedUser(req);
+        const client = getLumaStoreSupabaseClient(token);
+        const { data, error } = await client.from('luma_billing_monthly_statements').select('*')
+            .eq('developer_id', user.id).order('period_start', { ascending: false });
+        if (error) throw error;
+        res.json({ statements: data || [] });
+    } catch (error) {
+        fail(res, error, 'MONTHLY_FEES_UNAVAILABLE');
+    }
+});
 
 router.get('/apps/:packageName/products', async (req, res) => {
     try {
