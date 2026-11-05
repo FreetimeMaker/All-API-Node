@@ -3,7 +3,6 @@ const router = express.Router();
 const health = require("./health/health");
 const supabaseRoutes = require("./auth/supabase");
 const walloraWallpapers = require("./wallora/wallpapers");
-const arcadeRoutes = require("./arcade");
 const lumaStore = require("./lumastore/store");
 const blogRoutes = require("./blog");
 
@@ -36,7 +35,6 @@ const asRouter = (m) => {
 router.use("/health", asRouter(health));
 router.use("/auth", asRouter(supabaseRoutes));
 router.use("/wallora/wallpapers", asRouter(walloraWallpapers));
-router.use("/arcade", asRouter(arcadeRoutes));
 router.use("/lumastore", asRouter(lumaStore));
 router.use("/blog", asRouter(blogRoutes));
 

@@ -3,7 +3,6 @@ const router = express.Router();
 const axios = require('axios');
 const health = require('./health/health');
 const supabaseRoutes = require('./auth/supabase');
-const geoWeatherSubscriptions = require('./geoweather/subscriptions');
 const walloraWallpapers = require('./wallora/wallpapers');
 
 // Vercel (Rolldown) liefert gebündelte Module in wechselnden Formen:
@@ -33,7 +32,6 @@ const asRouter = (m) => {
 
 router.use('/health', asRouter(health));
 router.use('/auth', asRouter(supabaseRoutes));
-router.use('/geoweather/subscriptions', asRouter(geoWeatherSubscriptions));
 router.use('/wallora/wallpapers', asRouter(walloraWallpapers));
 
 router.get('/v1', (req, res) => {
