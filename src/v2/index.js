@@ -53,13 +53,6 @@ router.get("/v2", (req, res) => {
       "Wallora endpoints": {
         wallpapers: "/wallora/wallpapers",
       },
-      "Sol Arcade endpoints": {
-        info: "/v2/arcade",
-        challenge: "/v2/arcade/challenge",
-        login: "/v2/arcade/login",
-        me: "/v2/arcade/me",
-        setup: "/v2/arcade/setup",
-      },
       "Luma Store endpoints": {
         apps: "/lumastore/apps",
         appDetails: "/lumastore/apps/:id",
