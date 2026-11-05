@@ -33,11 +33,6 @@ app.get('/', (req, res) => {
                     login: '/v1/auth/login',
                     logout: '/v1/auth/logout'
                 },
-                'GeoWeather endpoints': {
-                    subscriptions: '/v1/geoweather/subscriptions',
-                    plans: '/v1/geoweather/subscriptions/plans',
-                    redeem: '/v1/geoweather/subscriptions/redeem',
-                },
                 'Wallora endpoints': {
                     wallpapers: '/v1/wallora/wallpapers'
                 }

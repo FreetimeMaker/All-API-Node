@@ -47,11 +47,6 @@ router.get('/v1', (req, res) => {
                 login: '/auth/login',
                 logout: '/auth/logout'
             },
-            'GeoWeather endpoints': {
-                subscriptions: '/geoweather/subscriptions',
-                plans: '/geoweather/subscriptions/plans',
-                redeem: '/geoweather/subscriptions/redeem',
-            },
             'Wallora endpoints': {
                 wallpapers: '/wallora/wallpapers'
             }
