@@ -1,5 +1,8 @@
 # All API
 
+## This Repo is sponsored by: 
+[![Sponsor](https://readme.cash/i/49druo4hvl.svg)](https://readme.cash/c/49druo4hvl)
+
 The central backend for all Freetime Maker services. Built with Express.js and deployed as a Vercel serverless function.
 
 ## Services
