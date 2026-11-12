@@ -1,5 +1,9 @@
 const express = require("express");
 const router = express.Router();
+const { enrichApps } = require("../../lib/luma-metadata");
+const { createMetadataWebhook } = require("../../lib/luma-metadata-webhook");
+
+router.post("/metadata/webhook", createMetadataWebhook());
 const {
   getLumaStoreSupabaseClient,
   getLumaStoreAuthenticatedUser,
@@ -67,7 +71,10 @@ router.get("/apps", async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
-    const appsWithDownloads = await addDownloadCounts(client, data || []);
+    const appsWithDownloads = await addDownloadCounts(
+      client,
+      await enrichApps(client, data || []),
+    );
     let result = appsWithDownloads.map((app) =>
       normalizeApp(app, platform || null),
     );
@@ -107,7 +114,10 @@ router.get("/apps/:id", async (req, res) => {
       .eq("id", id)
       .single();
     if (error) throw error;
-    const [appWithDownloads] = await addDownloadCounts(client, data);
+    const [appWithDownloads] = await addDownloadCounts(
+      client,
+      await enrichApps(client, [data]),
+    );
     res.json(normalizeApp(appWithDownloads, platform || null));
   } catch (error) {
     res.status(404).json({ error: "App not found", message: error.message });
@@ -374,15 +384,13 @@ router.get("/apps/:id/rating/me", async (req, res) => {
       updated_at: data?.updated_at ?? null,
     });
   } catch (error) {
-    res
-      .status(error.status || 401)
-      .json({
-        error:
-          error.status === 403
-            ? "Google sign-in required"
-            : "Authentication required",
-        message: error.message,
-      });
+    res.status(error.status || 401).json({
+      error:
+        error.status === 403
+          ? "Google sign-in required"
+          : "Authentication required",
+      message: error.message,
+    });
   }
 });
 
@@ -390,23 +398,19 @@ router.put("/apps/:id/rating/me", express.json(), async (req, res) => {
   try {
     const rating = Number(req.body?.rating);
     if (!Number.isInteger(rating) || rating < 1 || rating > 5)
-      return res
-        .status(400)
-        .json({
-          error: "Invalid rating",
-          message: "rating must be an integer from 1 to 5",
-        });
+      return res.status(400).json({
+        error: "Invalid rating",
+        message: "rating must be an integer from 1 to 5",
+      });
     const reviewText =
       typeof req.body?.review_text === "string"
         ? req.body.review_text.trim()
         : "";
     if (reviewText.length > 2000)
-      return res
-        .status(400)
-        .json({
-          error: "Review too long",
-          message: "review_text must be 2000 characters or fewer",
-        });
+      return res.status(400).json({
+        error: "Review too long",
+        message: "review_text must be 2000 characters or fewer",
+      });
     const { user, token } = await getLumaStoreAuthenticatedUser(req);
     const client = getLumaStoreSupabaseClient(token);
     const app = await resolveApp(client, req.params.id);
@@ -432,12 +436,10 @@ router.put("/apps/:id/rating/me", express.json(), async (req, res) => {
     res.json({ app_id: app.id, ...data });
   } catch (error) {
     const status = error.status || 401;
-    res
-      .status(status)
-      .json({
-        error: status === 403 ? error.message : "Unable to save rating",
-        message: error.message,
-      });
+    res.status(status).json({
+      error: status === 403 ? error.message : "Unable to save rating",
+      message: error.message,
+    });
   }
 });
 
@@ -454,15 +456,13 @@ router.delete("/apps/:id/rating/me", async (req, res) => {
     if (error) throw error;
     res.status(204).end();
   } catch (error) {
-    res
-      .status(error.status || 401)
-      .json({
-        error:
-          error.status === 403
-            ? "Google sign-in required"
-            : "Unable to delete rating",
-        message: error.message,
-      });
+    res.status(error.status || 401).json({
+      error:
+        error.status === 403
+          ? "Google sign-in required"
+          : "Unable to delete rating",
+      message: error.message,
+    });
   }
 });
 
